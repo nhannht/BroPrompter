@@ -87,6 +87,67 @@ final class CaptureSessionManager {
     configure(device: device, quality: quality)
   }
 
+  /// Begins recording the clean camera feed (no text burn-in) to `url`, adding
+  /// the chosen microphone as an audio input so the take has sound. Adding the
+  /// audio input lights the system microphone indicator (GUIDELINES.md 2.1).
+  func startRecording(to url: URL, micID: String?, codec: AVVideoCodecType) {
+    nonisolated(unsafe) let session = session
+    nonisolated(unsafe) let movieOutput = movieOutput
+    nonisolated(unsafe) let microphone = Self.microphone(withID: micID)
+    let delegate = MovieRecordingDelegate()
+    recordingDelegate = delegate
+    nonisolated(unsafe) let captureDelegate = delegate
+
+    sessionQueue.async {
+      if
+        let microphone,
+        let audioInput = try? AVCaptureDeviceInput(device: microphone),
+        session.canAddInput(audioInput)
+      {
+        session.beginConfiguration()
+        session.addInput(audioInput)
+        session.commitConfiguration()
+      }
+      if let connection = movieOutput.connection(with: .video) {
+        movieOutput.setOutputSettings([AVVideoCodecKey: codec], for: connection)
+      }
+      movieOutput.startRecording(to: url, recordingDelegate: captureDelegate)
+    }
+  }
+
+  /// Stops the video recording and returns the finished file's URL (nil on
+  /// failure), then removes the audio input so the microphone indicator clears.
+  func stopRecording() async -> URL? {
+    guard let delegate = recordingDelegate else { return nil }
+    recordingDelegate = nil
+    nonisolated(unsafe) let movieOutput = movieOutput
+    nonisolated(unsafe) let captureDelegate = delegate
+
+    let url = await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
+      captureDelegate.onFinish = { outputURL, error in
+        continuation.resume(returning: error == nil ? outputURL : nil)
+      }
+      sessionQueue.async {
+        if movieOutput.isRecording {
+          movieOutput.stopRecording()
+        } else {
+          captureDelegate.finishOnce(nil)
+        }
+      }
+    }
+    removeAudioInput()
+    return url
+  }
+
+  /// The recording's current average audio power in decibels, for the meter.
+  func audioMeterDecibels() -> Double {
+    guard
+      let connection = movieOutput.connection(with: .audio),
+      let channel = connection.audioChannels.first
+    else { return RecorderController.meterFloorDecibels }
+    return Double(channel.averagePowerLevel)
+  }
+
   // MARK: Private
 
   /// Camera device types BroPrompter offers: built-in, external/USB, iPhone
@@ -102,10 +163,24 @@ final class CaptureSessionManager {
   /// Serial queue for session configuration and the blocking start/stop calls.
   private let sessionQueue = DispatchQueue(label: "com.nhannht.BroPrompter.capture")
 
+  /// Records the clean camera feed to a file for video takes (BROP-6).
+  private let movieOutput = AVCaptureMovieFileOutput()
+
+  /// Retains the recording delegate for the duration of a take.
+  private var recordingDelegate: MovieRecordingDelegate?
+
   /// Resolves a camera by its unique id.
   private static func camera(withID id: String?) -> AVCaptureDevice? {
     guard let id else { return nil }
     return AVCaptureDevice(uniqueID: id)
+  }
+
+  /// Resolves a microphone by id, falling back to the system default mic.
+  private static func microphone(withID id: String?) -> AVCaptureDevice? {
+    if let id, let device = AVCaptureDevice(uniqueID: id) {
+      return device
+    }
+    return AVCaptureDevice.default(for: .audio)
   }
 
   /// Lists the devices of the given types as picker-friendly values.
@@ -154,6 +229,7 @@ final class CaptureSessionManager {
   private func configure(device: AVCaptureDevice, quality: CaptureQuality) {
     nonisolated(unsafe) let session = session
     nonisolated(unsafe) let device = device
+    nonisolated(unsafe) let movieOutput = movieOutput
     sessionQueue.async {
       session.beginConfiguration()
       defer { session.commitConfiguration() }
@@ -165,7 +241,24 @@ final class CaptureSessionManager {
       else { return }
 
       session.addInput(input)
+      if session.canAddOutput(movieOutput) {
+        session.addOutput(movieOutput)
+      }
       Self.applyQuality(quality, to: device)
+    }
+  }
+
+  /// Removes any audio input so the microphone indicator clears after a take.
+  private func removeAudioInput() {
+    nonisolated(unsafe) let session = session
+    sessionQueue.async {
+      session.beginConfiguration()
+      defer { session.commitConfiguration() }
+      for input in session.inputs {
+        if let deviceInput = input as? AVCaptureDeviceInput, deviceInput.device.hasMediaType(.audio) {
+          session.removeInput(deviceInput)
+        }
+      }
     }
   }
 
@@ -177,5 +270,30 @@ final class CaptureSessionManager {
       let running = session.isRunning
       Task { @MainActor in self?.isRunning = running }
     }
+  }
+}
+
+// MARK: - MovieRecordingDelegate
+
+/// Bridges `AVCaptureMovieFileOutput`'s recording-finished callback to an async
+/// result, firing its completion exactly once.
+private final class MovieRecordingDelegate: NSObject, AVCaptureFileOutputRecordingDelegate {
+  var onFinish: ((URL?, Error?) -> Void)?
+
+  /// Calls and clears the completion, so neither the delegate callback nor the
+  /// not-recording fallback can resume the continuation twice.
+  func finishOnce(_ url: URL?, error: Error? = nil) {
+    let completion = onFinish
+    onFinish = nil
+    completion?(url, error)
+  }
+
+  func fileOutput(
+    _: AVCaptureFileOutput,
+    didFinishRecordingTo outputFileURL: URL,
+    from _: [AVCaptureConnection],
+    error: Error?
+  ) {
+    finishOnce(outputFileURL, error: error)
   }
 }
