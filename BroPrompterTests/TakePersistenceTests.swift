@@ -36,4 +36,30 @@ struct TakePersistenceTests {
     #expect(fetched.first?.fileName == "take.m4a")
     #expect(fetched.first?.duration == 12.5)
   }
+
+  @Test("a video take's quality and codec survive reopening the store")
+  func videoTakeMetadataSurvivesReopen() throws {
+    let url = TestStore.tempStoreURL()
+    defer { TestStore.removeStore(at: url) }
+
+    do {
+      let container = try TestStore.container(at: url)
+      let take = Take(
+        mode: .video,
+        fileName: "take.mov",
+        duration: 134,
+        qualityRaw: CaptureQuality.hd1080p30.rawValue,
+        codecRaw: VideoCodec.hevc.rawValue
+      )
+      container.mainContext.insert(take)
+      try container.mainContext.save()
+    }
+
+    let reopened = try TestStore.container(at: url)
+    let fetched = try reopened.mainContext.fetch(FetchDescriptor<Take>())
+    #expect(fetched.count == 1)
+    #expect(fetched.first?.mode == .video)
+    #expect(fetched.first?.quality == .hd1080p30)
+    #expect(fetched.first?.codec == .hevc)
+  }
 }

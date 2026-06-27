@@ -52,6 +52,8 @@ final class Take {
     mode: TakeMode,
     fileName: String,
     duration: TimeInterval,
+    qualityRaw: String = "",
+    codecRaw: String = "",
     createdAt: Date = .now
   ) {
     self.id = id
@@ -59,6 +61,8 @@ final class Take {
     modeRaw = mode.rawValue
     self.fileName = fileName
     self.duration = duration
+    self.qualityRaw = qualityRaw
+    self.codecRaw = codecRaw
     self.createdAt = createdAt
   }
 
@@ -69,6 +73,15 @@ final class Take {
   var modeRaw = TakeMode.video.rawValue
   var fileName = ""
   var duration = 0.0
+
+  /// The capture quality preset for a video take (`CaptureQuality.rawValue`);
+  /// empty for audio takes. Stored at record time for the recordings browser
+  /// (BROP-7), so the resolution label needs no `AVAsset` read.
+  var qualityRaw = ""
+
+  /// The codec for a video take (`VideoCodec.rawValue`); empty for audio takes.
+  var codecRaw = ""
+
   var createdAt = Date.now
 }
 
@@ -83,5 +96,15 @@ extension Take {
   /// The media file's location in the app container.
   var fileURL: URL {
     RecordingsDirectory.fileURL(forName: fileName)
+  }
+
+  /// The stored capture quality, or `nil` for audio takes and pre-BROP-7 takes.
+  var quality: CaptureQuality? {
+    qualityRaw.isEmpty ? nil : CaptureQuality(rawValue: qualityRaw)
+  }
+
+  /// The stored video codec, or `nil` for audio takes and pre-BROP-7 takes.
+  var codec: VideoCodec? {
+    codecRaw.isEmpty ? nil : VideoCodec(rawValue: codecRaw)
   }
 }

@@ -376,9 +376,25 @@ private struct TeleprompterReader: View {
     micDeviceID.isEmpty ? nil : micDeviceID
   }
 
-  /// Inserts a finished take into the shared store.
-  private static func persistTake(url: URL, mode: TakeMode, duration: TimeInterval, scriptID: UUID) {
-    let take = Take(scriptID: scriptID, mode: mode, fileName: url.lastPathComponent, duration: duration)
+  /// Inserts a finished take into the shared store. The capture quality and codec
+  /// are recorded for video takes (empty for audio) so the recordings browser can
+  /// label resolution without reopening the file (BROP-7).
+  private static func persistTake(
+    url: URL,
+    mode: TakeMode,
+    duration: TimeInterval,
+    scriptID: UUID,
+    qualityRaw: String,
+    codecRaw: String
+  ) {
+    let take = Take(
+      scriptID: scriptID,
+      mode: mode,
+      fileName: url.lastPathComponent,
+      duration: duration,
+      qualityRaw: qualityRaw,
+      codecRaw: codecRaw
+    )
     let context = ScriptStore.container.mainContext
     context.insert(take)
     try? context.save()
@@ -527,7 +543,14 @@ private struct TeleprompterReader: View {
   }
 
   private func saveTake(url: URL, mode: TakeMode, duration: TimeInterval, scriptID: UUID) {
-    Self.persistTake(url: url, mode: mode, duration: duration, scriptID: scriptID)
+    Self.persistTake(
+      url: url,
+      mode: mode,
+      duration: duration,
+      scriptID: scriptID,
+      qualityRaw: mode == .video ? cameraQualityRaw : "",
+      codecRaw: mode == .video ? videoCodecRaw : ""
+    )
     savedTakeURL = url
   }
 
@@ -538,6 +561,8 @@ private struct TeleprompterReader: View {
     let mode = recordingMode
     let duration = recorder.elapsed
     let scriptID = script.id
+    let qualityRaw = mode == .video ? cameraQualityRaw : ""
+    let codecRaw = mode == .video ? videoCodecRaw : ""
     let session = session
     let audioRecorder = audioRecorder
     Task { @MainActor in
@@ -547,7 +572,14 @@ private struct TeleprompterReader: View {
         case .audio: audioRecorder.stop()
         }
       if let url {
-        Self.persistTake(url: url, mode: mode, duration: duration, scriptID: scriptID)
+        Self.persistTake(
+          url: url,
+          mode: mode,
+          duration: duration,
+          scriptID: scriptID,
+          qualityRaw: qualityRaw,
+          codecRaw: codecRaw
+        )
       }
       session.stop()
     }
