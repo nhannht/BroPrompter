@@ -11,16 +11,36 @@ import SwiftData
 /// A single shared container backs both the app scene and the menu commands, so
 /// `ScriptStore.container.mainContext` is the same context the window edits.
 enum ScriptStore {
+
+  // MARK: Internal
+
   /// The shared scripts container.
   static let container: ModelContainer = {
     let schema = Schema([Script.self])
-    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-    // CloudKit flip later (BROP-27):
-    // ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
     do {
-      return try ModelContainer(for: schema, configurations: [configuration])
+      return try ModelContainer(for: schema, configurations: [configuration(for: schema)])
     } catch {
       fatalError("Failed to create the scripts ModelContainer: \(error)")
     }
   }()
+
+  // MARK: Private
+
+  /// `true` when the app is launched as the host of a hosted test bundle, so the
+  /// suite never touches the real local store.
+  private static var isRunningHostedTests: Bool {
+    let environment = ProcessInfo.processInfo.environment
+    return environment["XCTestConfigurationFilePath"] != nil
+      || environment["XCTestBundlePath"] != nil
+      || environment["XCTestSessionIdentifier"] != nil
+  }
+
+  private static func configuration(for schema: Schema) -> ModelConfiguration {
+    if isRunningHostedTests {
+      return ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    }
+    // CloudKit flip later (BROP-27):
+    // ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
+    return ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+  }
 }
