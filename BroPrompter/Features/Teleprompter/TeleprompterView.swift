@@ -55,8 +55,14 @@ private struct TeleprompterReader: View {
     GeometryReader { proxy in
       let focusY = proxy.size.height * Self.focusFraction
       ZStack(alignment: .top) {
-        Color(nsColor: .textBackgroundColor)
+        cameraBackground
           .ignoresSafeArea()
+
+        if isCameraActive {
+          contrastScrim
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+        }
 
         scrollingText(viewport: proxy.size, focusY: focusY)
           .offset(y: -engine.offset)
@@ -101,18 +107,32 @@ private struct TeleprompterReader: View {
       .onChange(of: engine.isPlaying) { _, playing in
         playing ? scheduleHide() : revealControls()
       }
+      .onChange(of: cameraEnabled) { _, _ in syncCamera() }
+      .onChange(of: cameraDeviceID) { _, _ in
+        guard isCameraAuthorizedAndEnabled else { return }
+        session.selectCamera(id: selectedCameraID, quality: cameraQuality)
+      }
+      .onChange(of: cameraQualityRaw) { _, _ in
+        guard isCameraAuthorizedAndEnabled else { return }
+        session.updateQuality(cameraQuality, cameraID: selectedCameraID)
+      }
       .onAppear {
         viewportHeight = proxy.size.height
         engine.speed = script.scrollSpeed
         updateMaxOffset()
         isFocused = true
         installScrollMonitor()
+        session.refreshDevices()
+        syncCamera()
       }
       .onChange(of: proxy.size.height) { _, newHeight in
         viewportHeight = newHeight
         updateMaxOffset()
       }
-      .onDisappear(perform: removeScrollMonitor)
+      .onDisappear {
+        removeScrollMonitor()
+        session.stop()
+      }
     }
   }
 
@@ -127,8 +147,10 @@ private struct TeleprompterReader: View {
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(PermissionManager.self) private var permissions
 
   @State private var engine = TeleprompterEngine()
+  @State private var session = CaptureSessionManager()
   @State private var viewportHeight = 0.0
   @State private var contentHeight = 0.0
   @State private var lastDragHeight = 0.0
@@ -143,6 +165,14 @@ private struct TeleprompterReader: View {
   /// Global reading-column width as a fraction of the viewport (DESIGN.md: line
   /// width is a display preference, not a per-script attribute).
   @AppStorage("teleprompter.lineWidthFraction") private var lineWidthFraction = 0.8
+
+  /// Camera background preferences, global like the line width (a capture
+  /// environment choice, not a per-script attribute). The mic id is selected
+  /// here but consumed only when recording starts (P4 / BROP-6).
+  @AppStorage("camera.enabled") private var cameraEnabled = false
+  @AppStorage("camera.deviceID") private var cameraDeviceID = ""
+  @AppStorage("camera.micID") private var micDeviceID = ""
+  @AppStorage("camera.quality") private var cameraQualityRaw = CaptureQuality.preferred.rawValue
 
   /// One line's worth of scroll, used for arrow-key scrub steps.
   private var lineStep: Double {
@@ -189,12 +219,74 @@ private struct TeleprompterReader: View {
     )
   }
 
+  /// Whether the live camera is currently feeding the background.
+  private var isCameraActive: Bool {
+    cameraEnabled && session.isRunning
+  }
+
+  /// Whether the camera is both enabled and authorized to run.
+  private var isCameraAuthorizedAndEnabled: Bool {
+    cameraEnabled && permissions.status(for: .camera) == .authorized
+  }
+
+  /// The selected camera quality, falling back to the default preset.
+  private var cameraQuality: CaptureQuality {
+    CaptureQuality(rawValue: cameraQualityRaw) ?? .preferred
+  }
+
+  /// The selected camera id, or `nil` to use the system default camera.
+  private var selectedCameraID: String? {
+    cameraDeviceID.isEmpty ? nil : cameraDeviceID
+  }
+
+  @ViewBuilder
+  private var cameraBackground: some View {
+    if isCameraActive {
+      CameraPreviewView(session: session.session)
+    } else {
+      Color(nsColor: .textBackgroundColor)
+    }
+  }
+
+  /// A soft dark veil concentrated around the focus line so the reading text
+  /// clears contrast over any camera image (GUIDELINES.md 4 / 2.3).
+  private var contrastScrim: some View {
+    LinearGradient(
+      stops: [
+        .init(color: .black.opacity(0), location: 0),
+        .init(color: .black.opacity(0.4), location: Self.focusFraction),
+        .init(color: .black.opacity(0), location: 1),
+      ],
+      startPoint: .top,
+      endPoint: .bottom
+    )
+  }
+
+  /// Reading text is high-contrast white over the camera (paired with the scrim
+  /// and a shadow) and the semantic primary label color over the plain
+  /// background. Over arbitrary video `.primary` cannot guarantee contrast, so
+  /// the white treatment is the documented exception to semantic color
+  /// (GUIDELINES.md 4).
+  private var readingTextStyle: AnyShapeStyle {
+    isCameraActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary)
+  }
+
+  /// Starts or stops the camera to match the stored preference and authorization.
+  private func syncCamera() {
+    if isCameraAuthorizedAndEnabled {
+      session.start(cameraID: selectedCameraID, quality: cameraQuality)
+    } else {
+      session.stop()
+    }
+  }
+
   private func scrollingText(viewport: CGSize, focusY: CGFloat) -> some View {
     Text(script.body)
       .font(.system(size: script.fontSize, weight: .medium))
       .lineSpacing(script.fontSize * 0.3)
       .multilineTextAlignment(.center)
-      .foregroundStyle(.primary)
+      .foregroundStyle(readingTextStyle)
+      .shadow(color: .black.opacity(isCameraActive ? 0.8 : 0), radius: isCameraActive ? 5 : 0, y: 1)
       .frame(width: viewport.width * lineWidthFraction)
       .padding(.top, focusY)
       .padding(.bottom, viewport.height - focusY)

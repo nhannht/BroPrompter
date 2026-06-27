@@ -21,6 +21,7 @@ struct BroPrompterApp: App {
     // by id and re-fetched inside the window.
     WindowGroup(id: "teleprompter", for: UUID.self) { $scriptID in
       TeleprompterView(scriptID: scriptID)
+        .environment(permissions)
     }
     .defaultSize(width: 900, height: 700)
     .modelContainer(ScriptStore.container)
