@@ -50,15 +50,6 @@ struct AppCommands: Commands {
     ScriptStore.container.mainContext
   }
 
-  /// During UI tests (BROP-30), import from injected environment values rather
-  /// than the open panel, which the App Sandbox would block for a path the user
-  /// never granted.
-  private static func uiTestImportedScript() -> Script? {
-    let environment = ProcessInfo.processInfo.environment
-    guard let title = environment["UITEST_IMPORT_TITLE"] else { return nil }
-    return Script(title: title, body: environment["UITEST_IMPORT_BODY"] ?? "")
-  }
-
   @MainActor
   private func createScript() {
     let script = Script()
@@ -75,12 +66,6 @@ struct AppCommands: Commands {
 
   @MainActor
   private func importTextFile() {
-    if let injected = Self.uiTestImportedScript() {
-      context.insert(injected)
-      selectedScriptID?.wrappedValue = injected.id
-      return
-    }
-
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.plainText]
     panel.allowsMultipleSelection = false
