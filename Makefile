@@ -3,7 +3,13 @@
 
 EXCLUDES := --exclude build --exclude BroPrompter.xcodeproj
 
-.PHONY: format lint hooks generate build
+# Debug / screenshot tooling (all output under the gitignored build/).
+APP_DERIVED := build/DerivedData
+APP_PATH := $(APP_DERIVED)/Build/Products/Debug/BroPrompter.app
+WINID := build/winid
+SHOTS := build/screenshots
+
+.PHONY: format lint hooks generate build run screenshot
 
 ## format: Autofix all Swift sources to the Airbnb Swift Style Guide.
 format:
@@ -24,3 +30,17 @@ generate:
 ## build: Build the app (Debug, ad-hoc signing).
 build:
 	xcodebuild -scheme BroPrompter -destination 'platform=macOS' -configuration Debug build CODE_SIGN_IDENTITY="-"
+
+## run: Build (Debug, ad-hoc) and launch the app for manual/visual debugging.
+run:
+	xcodebuild -scheme BroPrompter -destination 'platform=macOS' -configuration Debug -derivedDataPath $(APP_DERIVED) build CODE_SIGN_IDENTITY="-"
+	open $(APP_PATH)
+
+## screenshot: Capture the running BroPrompter window to build/screenshots (no cursor/focus change). Needs Screen Recording granted to the terminal once.
+screenshot: $(WINID)
+	@mkdir -p $(SHOTS)
+	@wid=$$($(WINID) BroPrompter) && screencapture -x -o -l $$wid $(SHOTS)/broprompter.png && echo "wrote $(SHOTS)/broprompter.png (window $$wid)"
+
+$(WINID): tools/winid.swift
+	@mkdir -p build
+	swiftc -O -o $(WINID) tools/winid.swift

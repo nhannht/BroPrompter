@@ -120,6 +120,26 @@ Rules:
 - BAD: finish a SwiftUI change, commit it, leave formatting for later.
 - GOOD: edit the file, `make format`, `make lint` shows 0 violations, then commit.
 
+## Debugging and screenshots (BROP-28)
+
+Verify the running app's UI in the background, without touching the user's mouse
+or focus. Do not screenshot the whole desktop, do not raise or move the app
+window, do not use full-screen capture tools.
+
+- `make run` builds (Debug, ad-hoc) and launches the app into the gitignored
+  `build/DerivedData`.
+- `make screenshot` captures the running BroPrompter window to
+  `build/screenshots/broprompter.png` via `screencapture -l <windowID>`, then
+  Read that PNG. It captures only the app window (even when occluded or in the
+  background) and never moves the cursor or raises the window. `tools/winid.swift`
+  resolves the window id from window metadata (no permission needed).
+- One-time setup per machine: grant Screen Recording to the terminal app
+  (System Settings > Privacy & Security > Screen & System Audio Recording). Pixel
+  capture fails with "could not create image from window" until this is on. No
+  app relaunch is needed after granting.
+- This captures app state only; it does not drive the UI. To exercise
+  create/edit/delete, capture while the user interacts, or ask the user to act.
+
 ## Docs are linted
 
 `DESIGN.md` and `GUIDELINES.md` are checked with Vale against Google's
