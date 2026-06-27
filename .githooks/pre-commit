@@ -1,0 +1,13 @@
+#!/bin/sh
+# BroPrompter pre-commit gate: the Airbnb Swift lint/format check must pass
+# before a commit lands. Autofix locally with `make format`. Emergency bypass
+# (discouraged): `git commit --no-verify`.
+# See CLAUDE.md "Linting and formatting" and BROP-26.
+set -e
+
+if git diff --cached --name-only --diff-filter=ACM | grep -q '\.swift$'; then
+  echo "pre-commit: running Airbnb Swift lint check..."
+  swift package --allow-writing-to-package-directory format --lint \
+    --exclude build --exclude BroPrompter.xcodeproj
+  echo "pre-commit: lint passed."
+fi

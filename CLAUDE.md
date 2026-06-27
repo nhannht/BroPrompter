@@ -89,6 +89,37 @@ never hardcode the domain in this repo.
   iCloud container: `iCloud.com.nhannht.BroPrompter`. Use these for the app
   target, signing, and the CloudKit entitlement in P0 (BROP-2).
 
+## Linting and formatting (MANDATORY)
+
+All Swift code follows the Airbnb Swift Style Guide, enforced by the Airbnb
+FormatSwift command plugin (SwiftFormat + SwiftLint, version-locked in
+`Package.resolved`). Naming and API design follow Apple's Swift API Design
+Guidelines. The tooling-only `Package.swift` at the repo root hosts the plugin;
+it does not build the app (XcodeGen + `xcodebuild` own that). Tracked in BROP-26.
+
+Strict workflow, enforced at three gates:
+
+- Before every commit: run `make format` (autofix), then `make lint` must report
+  `0 violations, 0 serious`. Never commit Swift that fails `make lint`.
+- Pre-commit hook (`.githooks/pre-commit`) blocks any commit whose check fails.
+  Activate it once per clone with `make hooks` (sets `core.hooksPath`).
+- CI (`.github/workflows/lint.yml`) runs the same check on push / pull request.
+
+Rules:
+
+- After writing or editing any `.swift` file, run `make format` then `make lint`
+  before reporting the task done. A task with lint violations is not complete.
+- Never disable a SwiftFormat / SwiftLint rule to make code pass. Fix the code.
+  Changing the shared config or the excludes is a separate, deliberate decision
+  filed as a BROP issue, never an inline silencing.
+- Never use `git commit --no-verify` to skip the hook except in a real emergency;
+  file a BROP follow-up to fix the violation in the same turn.
+- `make format` and `make lint` exclude `build/` and `BroPrompter.xcodeproj`
+  (generated). Do not format generated files.
+
+- BAD: finish a SwiftUI change, commit it, leave formatting for later.
+- GOOD: edit the file, `make format`, `make lint` shows 0 violations, then commit.
+
 ## Docs are linted
 
 `DESIGN.md` and `GUIDELINES.md` are checked with Vale against Google's

@@ -1,0 +1,19 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  swift-style:
+    name: Airbnb Swift lint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Swift version
+        run: swift --version
+      - name: Lint and format check
+        run: |
+          swift package --allow-writing-to-package-directory format --lint \
+            --exclude build --exclude BroPrompter.xcodeproj
