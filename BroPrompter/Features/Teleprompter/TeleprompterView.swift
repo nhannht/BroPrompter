@@ -133,6 +133,9 @@ private struct TeleprompterReader: View {
         removeScrollMonitor()
         session.stop()
       }
+      .sheet(item: $permissionStep) { step in
+        cameraPermissionSheet(step)
+      }
     }
   }
 
@@ -159,6 +162,7 @@ private struct TeleprompterReader: View {
   @State private var windowBox = WindowBox()
   @State private var scrollMonitor: Any?
   @State private var didActivateWindow = false
+  @State private var permissionStep: CameraPermissionStep?
 
   @FocusState private var isFocused: Bool
 
@@ -304,9 +308,10 @@ private struct TeleprompterReader: View {
     }
   }
 
-  /// Turns the camera background on or off from the transport. Enabling first
-  /// ensures camera authorization; the in-context pre-prompt and the denied
-  /// recovery path are added in the next commit.
+  /// Turns the camera background on or off from the transport. Enabling routes
+  /// through the in-context permission flow (GUIDELINES.md 1.1): an explainer
+  /// before the first system prompt, and a recovery sheet to System Settings
+  /// when access has been denied.
   private func toggleCamera() {
     if cameraEnabled {
       cameraEnabled = false
@@ -322,12 +327,28 @@ private struct TeleprompterReader: View {
       cameraEnabled = true
 
     case .notDetermined:
-      Task {
-        if await permissions.request(.camera) { cameraEnabled = true }
-      }
+      permissionStep = .explain
 
     default:
-      break
+      permissionStep = .denied
+    }
+  }
+
+  @ViewBuilder
+  private func cameraPermissionSheet(_ step: CameraPermissionStep) -> some View {
+    switch step {
+    case .explain:
+      PermissionPrePromptView(
+        feature: .camera,
+        onResult: { granted in
+          permissionStep = nil
+          cameraEnabled = granted
+        },
+        onCancel: { permissionStep = nil }
+      )
+
+    case .denied:
+      PermissionDeniedView(feature: .camera) { permissionStep = nil }
     }
   }
 
@@ -429,6 +450,20 @@ private struct TeleprompterReader: View {
       NSEvent.removeMonitor(scrollMonitor)
     }
     scrollMonitor = nil
+  }
+}
+
+// MARK: - CameraPermissionStep
+
+/// Which camera-permission sheet the teleprompter is presenting, if any: the
+/// in-context explainer before the first system prompt, or the recovery sheet
+/// shown after a denial (GUIDELINES.md 1.1).
+private enum CameraPermissionStep: Identifiable {
+  case explain
+  case denied
+
+  var id: Self {
+    self
   }
 }
 
