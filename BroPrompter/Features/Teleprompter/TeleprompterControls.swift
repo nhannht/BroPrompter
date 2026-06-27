@@ -24,6 +24,12 @@ struct TeleprompterControls: View {
   @Binding var selectedCameraID: String
   @Binding var selectedMicID: String
   @Binding var selectedQuality: CaptureQuality
+  @Binding var selectedCountdown: Int
+  @Binding var selectedCodec: VideoCodec
+
+  let isCapturing: Bool
+  let recordDisabled: Bool
+  let cameraControlDisabled: Bool
 
   let onRestart: () -> Void
   let onTogglePlay: () -> Void
@@ -32,6 +38,7 @@ struct TeleprompterControls: View {
   let onSmaller: () -> Void
   let onLarger: () -> Void
   let onToggleCamera: () -> Void
+  let onToggleRecord: () -> Void
   let onClose: () -> Void
 
   var body: some View {
@@ -101,6 +108,11 @@ struct TeleprompterControls: View {
       Divider().frame(height: 20)
 
       cameraControl
+        .disabled(cameraControlDisabled)
+
+      Divider().frame(height: 20)
+
+      recordButton
 
       Spacer()
 
@@ -177,13 +189,25 @@ struct TeleprompterControls: View {
       } label: {
         Image(systemName: "slider.horizontal.3")
       }
-      .accessibilityLabel("Camera settings")
+      .accessibilityLabel("Capture settings")
       .accessibilityIdentifier("teleprompterCameraSettings")
-      .help("Choose camera, microphone, and quality")
+      .help("Choose camera, microphone, quality, countdown, and codec")
       .popover(isPresented: $showCameraSettings, arrowEdge: .bottom) {
         cameraSettings
       }
     }
+  }
+
+  private var recordButton: some View {
+    Button(action: onToggleRecord) {
+      Image(systemName: isCapturing ? "stop.circle.fill" : "record.circle")
+    }
+    .keyboardShortcut("r", modifiers: [])
+    .tint(.red)
+    .disabled(recordDisabled)
+    .accessibilityLabel(isCapturing ? "Stop recording" : "Start recording")
+    .accessibilityIdentifier("teleprompterRecord")
+    .help(isCapturing ? "Stop recording" : "Start recording")
   }
 
   private var cameraSettings: some View {
@@ -204,6 +228,18 @@ struct TeleprompterControls: View {
         ForEach(qualities) { Text($0.displayName).tag($0) }
       }
       .accessibilityIdentifier("teleprompterQualityPicker")
+
+      Picker("Countdown", selection: $selectedCountdown) {
+        Text("Off").tag(0)
+        Text("3s").tag(3)
+        Text("5s").tag(5)
+      }
+      .accessibilityIdentifier("teleprompterCountdownPicker")
+
+      Picker("Codec", selection: $selectedCodec) {
+        ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
+      }
+      .accessibilityIdentifier("teleprompterCodecPicker")
     }
     .padding()
     .frame(width: 320)

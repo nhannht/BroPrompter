@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftData
 import SwiftUI
 
@@ -77,6 +78,14 @@ private struct TeleprompterReader: View {
         }
         .allowsHitTesting(false)
 
+        // Recording driver: ticks the count-in and elapsed clock and samples the
+        // audio meter while a take is counting in or recording.
+        TimelineView(.animation(paused: !recorder.isActive)) { context in
+          Color.clear
+            .onChange(of: context.date) { _, date in advanceRecorder(date) }
+        }
+        .allowsHitTesting(false)
+
         // Tap toggles play/pause and drag scrubs. Kept as its own layer below
         // the transport overlay so the controls stay hittable (an equivalent
         // gesture on the container made the buttons report non-hittable).
@@ -85,6 +94,14 @@ private struct TeleprompterReader: View {
           .onTapGesture { togglePlay() }
           .gesture(scrubGesture)
           .accessibilityHidden(true)
+      }
+      .overlay {
+        RecordingOverlay(
+          recorder: recorder,
+          mode: recordingMode,
+          savedTakeURL: savedTakeURL,
+          onDismissSaved: { savedTakeURL = nil }
+        )
       }
       .overlay(alignment: .bottom) { controls }
       .background(WindowReader { window in
@@ -100,7 +117,15 @@ private struct TeleprompterReader: View {
       .focused($isFocused)
       .onKeyPress(.upArrow) { scrub(by: -lineStep) }
       .onKeyPress(.downArrow) { scrub(by: lineStep) }
-      .onExitCommand { dismiss() }
+      .onExitCommand {
+        // While recording, Esc stops the take instead of closing, so a take is
+        // never lost to an accidental exit (GUIDELINES.md 2.2).
+        if recorder.isCapturing {
+          stopRecording()
+        } else {
+          dismiss()
+        }
+      }
       .onContinuousHover { phase in
         if case .active = phase { revealControls() }
       }
@@ -116,6 +141,10 @@ private struct TeleprompterReader: View {
         guard isCameraAuthorizedAndEnabled else { return }
         session.updateQuality(cameraQuality, cameraID: selectedCameraID)
       }
+      .onChange(of: recorder.phase) { old, new in
+        if new == .recording, old != .paused { beginFileRecording() }
+      }
+      .onChange(of: countdownLength) { _, length in recorder.countdownLength = length }
       .onAppear {
         viewportHeight = proxy.size.height
         engine.speed = script.scrollSpeed
@@ -123,6 +152,7 @@ private struct TeleprompterReader: View {
         isFocused = true
         installScrollMonitor()
         session.refreshDevices()
+        recorder.countdownLength = countdownLength
         syncCamera()
       }
       .onChange(of: proxy.size.height) { _, newHeight in
@@ -131,10 +161,19 @@ private struct TeleprompterReader: View {
       }
       .onDisappear {
         removeScrollMonitor()
-        session.stop()
+        if recorder.isCapturing {
+          finalizeOnClose()
+        } else {
+          session.stop()
+        }
       }
-      .sheet(item: $permissionStep) { step in
-        cameraPermissionSheet(step)
+      .task(id: savedTakeURL) {
+        guard savedTakeURL != nil else { return }
+        try? await Task.sleep(for: .seconds(5))
+        savedTakeURL = nil
+      }
+      .sheet(item: $permissionRequest) { request in
+        permissionSheet(request)
       }
     }
   }
@@ -154,6 +193,10 @@ private struct TeleprompterReader: View {
 
   @State private var engine = TeleprompterEngine()
   @State private var session = CaptureSessionManager()
+  @State private var recorder = RecorderController()
+  @State private var audioRecorder = AudioTakeRecorder()
+  @State private var recordingMode = TakeMode.video
+  @State private var savedTakeURL: URL?
   @State private var viewportHeight = 0.0
   @State private var contentHeight = 0.0
   @State private var lastDragHeight = 0.0
@@ -162,7 +205,7 @@ private struct TeleprompterReader: View {
   @State private var windowBox = WindowBox()
   @State private var scrollMonitor: Any?
   @State private var didActivateWindow = false
-  @State private var permissionStep: CameraPermissionStep?
+  @State private var permissionRequest: PermissionRequest?
 
   @FocusState private var isFocused: Bool
 
@@ -177,6 +220,11 @@ private struct TeleprompterReader: View {
   @AppStorage("camera.deviceID") private var cameraDeviceID = ""
   @AppStorage("camera.micID") private var micDeviceID = ""
   @AppStorage("camera.quality") private var cameraQualityRaw = CaptureQuality.preferred.rawValue
+
+  /// Recording preferences, global like the camera settings. Countdown length in
+  /// seconds (0 disables); video codec for video takes.
+  @AppStorage("recording.countdown") private var countdownLength = 3
+  @AppStorage("recording.codec") private var videoCodecRaw = VideoCodec.hevc.rawValue
 
   /// One line's worth of scroll, used for arrow-key scrub steps.
   private var lineStep: Double {
@@ -206,6 +254,11 @@ private struct TeleprompterReader: View {
       selectedCameraID: $cameraDeviceID,
       selectedMicID: $micDeviceID,
       selectedQuality: qualityBinding,
+      selectedCountdown: $countdownLength,
+      selectedCodec: codecBinding,
+      isCapturing: recorder.isCapturing,
+      recordDisabled: recorder.phase == .finalizing,
+      cameraControlDisabled: recorder.isCapturing || recorder.phase == .countingIn,
       onRestart: { engine.restart()
         revealControls()
       },
@@ -215,6 +268,7 @@ private struct TeleprompterReader: View {
       onSmaller: { changeFont(by: -Self.fontStep) },
       onLarger: { changeFont(by: Self.fontStep) },
       onToggleCamera: toggleCamera,
+      onToggleRecord: toggleRecord,
       onClose: { dismiss() }
     )
     .opacity(showControls ? 1 : 0)
@@ -299,6 +353,37 @@ private struct TeleprompterReader: View {
     isCameraActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary)
   }
 
+  /// The selected video codec, falling back to HEVC.
+  private var videoCodec: VideoCodec {
+    VideoCodec(rawValue: videoCodecRaw) ?? .hevc
+  }
+
+  /// The AVFoundation codec for the selected `videoCodec`.
+  private var avCodec: AVVideoCodecType {
+    videoCodec == .h264 ? .h264 : .hevc
+  }
+
+  /// Bridges the raw stored codec to the picker's `VideoCodec` selection.
+  private var codecBinding: Binding<VideoCodec> {
+    Binding(
+      get: { videoCodec },
+      set: { videoCodecRaw = $0.rawValue }
+    )
+  }
+
+  /// The selected microphone id, or `nil` for the system default mic.
+  private var selectedMicrophoneID: String? {
+    micDeviceID.isEmpty ? nil : micDeviceID
+  }
+
+  /// Inserts a finished take into the shared store.
+  private static func persistTake(url: URL, mode: TakeMode, duration: TimeInterval, scriptID: UUID) {
+    let take = Take(scriptID: scriptID, mode: mode, fileName: url.lastPathComponent, duration: duration)
+    let context = ScriptStore.container.mainContext
+    context.insert(take)
+    try? context.save()
+  }
+
   /// Starts or stops the camera to match the stored preference and authorization.
   private func syncCamera() {
     if isCameraAuthorizedAndEnabled {
@@ -311,8 +396,10 @@ private struct TeleprompterReader: View {
   /// Turns the camera background on or off from the transport. Enabling routes
   /// through the in-context permission flow (GUIDELINES.md 1.1): an explainer
   /// before the first system prompt, and a recovery sheet to System Settings
-  /// when access has been denied.
+  /// when access has been denied. Locked while a take is in progress so the mode
+  /// cannot change mid-recording.
   private func toggleCamera() {
+    guard !recorder.isCapturing, recorder.phase != .countingIn else { return }
     if cameraEnabled {
       cameraEnabled = false
     } else {
@@ -327,28 +414,142 @@ private struct TeleprompterReader: View {
       cameraEnabled = true
 
     case .notDetermined:
-      permissionStep = .explain
+      permissionRequest = .cameraExplain
 
     default:
-      permissionStep = .denied
+      permissionRequest = .cameraDenied
+    }
+  }
+
+  /// Starts a take (count-in then recording) or stops one in progress. Recording
+  /// always needs the microphone, so enabling routes through the in-context mic
+  /// permission flow first.
+  private func toggleRecord() {
+    revealControls()
+    if recorder.isCapturing || recorder.phase == .countingIn {
+      stopRecording()
+    } else {
+      requestMicrophoneAndRecord()
+    }
+  }
+
+  private func requestMicrophoneAndRecord() {
+    switch permissions.status(for: .microphone) {
+    case .authorized:
+      recorder.start()
+
+    case .notDetermined:
+      permissionRequest = .microphoneExplain
+
+    default:
+      permissionRequest = .microphoneDenied
     }
   }
 
   @ViewBuilder
-  private func cameraPermissionSheet(_ step: CameraPermissionStep) -> some View {
-    switch step {
-    case .explain:
+  private func permissionSheet(_ request: PermissionRequest) -> some View {
+    switch request {
+    case .cameraExplain:
       PermissionPrePromptView(
         feature: .camera,
         onResult: { granted in
-          permissionStep = nil
+          permissionRequest = nil
           cameraEnabled = granted
         },
-        onCancel: { permissionStep = nil }
+        onCancel: { permissionRequest = nil }
       )
 
-    case .denied:
-      PermissionDeniedView(feature: .camera) { permissionStep = nil }
+    case .cameraDenied:
+      PermissionDeniedView(feature: .camera) { permissionRequest = nil }
+
+    case .microphoneExplain:
+      PermissionPrePromptView(
+        feature: .microphone,
+        onResult: { granted in
+          permissionRequest = nil
+          if granted { recorder.start() }
+        },
+        onCancel: { permissionRequest = nil }
+      )
+
+    case .microphoneDenied:
+      PermissionDeniedView(feature: .microphone) { permissionRequest = nil }
+    }
+  }
+
+  /// Advances the recorder clock and samples the audio meter once per frame.
+  private func advanceRecorder(_ date: Date) {
+    recorder.tick(date)
+    if recorder.phase == .recording {
+      recorder.updateLevel(decibels: currentMeterDecibels())
+    }
+  }
+
+  private func currentMeterDecibels() -> Double {
+    recordingMode == .video ? session.audioMeterDecibels() : audioRecorder.meterDecibels()
+  }
+
+  /// Begins the backing recorder when the count-in finishes. The mode follows
+  /// the camera ("what you see is what you record").
+  private func beginFileRecording() {
+    let mode: TakeMode = isCameraActive ? .video : .audio
+    recordingMode = mode
+    let name = RecorderController.takeFileName(scriptTitle: script.title, mode: mode, date: .now)
+    let url = RecordingsDirectory.fileURL(forName: name)
+    switch mode {
+    case .video:
+      session.startRecording(to: url, micID: selectedMicrophoneID, codec: avCodec)
+    case .audio:
+      try? audioRecorder.start(to: url)
+    }
+  }
+
+  /// Stops the take, finalizes the file, persists the Take, and confirms.
+  private func stopRecording() {
+    let mode = recordingMode
+    let duration = recorder.elapsed
+    let scriptID = script.id
+    recorder.stop()
+    Task {
+      let url = await finalizeRecording(mode: mode)
+      if let url {
+        saveTake(url: url, mode: mode, duration: duration, scriptID: scriptID)
+      }
+      recorder.finish()
+    }
+  }
+
+  private func finalizeRecording(mode: TakeMode) async -> URL? {
+    switch mode {
+    case .video: await session.stopRecording()
+    case .audio: audioRecorder.stop()
+    }
+  }
+
+  private func saveTake(url: URL, mode: TakeMode, duration: TimeInterval, scriptID: UUID) {
+    Self.persistTake(url: url, mode: mode, duration: duration, scriptID: scriptID)
+    savedTakeURL = url
+  }
+
+  /// Finalizes an in-progress take when the window closes, so it is never lost
+  /// (GUIDELINES.md 2.2). Captures strong references so the save completes even
+  /// as the view goes away, then releases the camera.
+  private func finalizeOnClose() {
+    let mode = recordingMode
+    let duration = recorder.elapsed
+    let scriptID = script.id
+    let session = session
+    let audioRecorder = audioRecorder
+    Task { @MainActor in
+      let url: URL? =
+        switch mode {
+        case .video: await session.stopRecording()
+        case .audio: audioRecorder.stop()
+        }
+      if let url {
+        Self.persistTake(url: url, mode: mode, duration: duration, scriptID: scriptID)
+      }
+      session.stop()
     }
   }
 
@@ -453,14 +654,17 @@ private struct TeleprompterReader: View {
   }
 }
 
-// MARK: - CameraPermissionStep
+// MARK: - PermissionRequest
 
-/// Which camera-permission sheet the teleprompter is presenting, if any: the
-/// in-context explainer before the first system prompt, or the recovery sheet
-/// shown after a denial (GUIDELINES.md 1.1).
-private enum CameraPermissionStep: Identifiable {
-  case explain
-  case denied
+/// Which permission sheet the teleprompter is presenting, if any: the in-context
+/// explainer before the first system prompt, or the recovery sheet after a
+/// denial, for either the camera (preview) or the microphone (recording)
+/// (GUIDELINES.md 1.1).
+private enum PermissionRequest: Identifiable {
+  case cameraExplain
+  case cameraDenied
+  case microphoneExplain
+  case microphoneDenied
 
   var id: Self {
     self
