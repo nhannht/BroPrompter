@@ -48,6 +48,23 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.nhannht.BroPrompterTests
         GENERATE_INFOPLIST_FILE: YES
 
+  BroPrompterUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: BroPrompterUITests
+    dependencies:
+      - target: BroPrompter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nhannht.BroPrompterUITests
+        GENERATE_INFOPLIST_FILE: YES
+        # Ad-hoc signing has no Team ID, so the hardened runtime's library
+        # validation refuses to load the test bundle into the XCTRunner. Disable
+        # it for local ad-hoc UI testing; the signing flip (BROP-27) supersedes.
+        ENABLE_HARDENED_RUNTIME: NO
+
 schemes:
   BroPrompter:
     build:
@@ -59,6 +76,7 @@ schemes:
       config: Debug
       targets:
         - BroPrompterTests
+        - BroPrompterUITests
     profile:
       config: Release
     analyze:
