@@ -4,9 +4,9 @@ Native macOS teleprompter (SwiftUI) with camera preview, auto-scroll, and audio 
 video recording. Tracked in YouTrack project **BROP** (epic BROP-1; phases
 P0-P8 = BROP-2 through BROP-10).
 
-## Read the reference docs before any work (MANDATORY)
+## Read the reference docs and the Figma prototype before any work (MANDATORY)
 
-Before writing or editing any code, design, or UI in this repo, read BOTH:
+Before writing or editing any code, design, or UI in this repo, read all THREE:
 
 - `DESIGN.md` - the visual system. macOS 26 (Tahoe) tokens, the 71-component
   inventory, and each component mapped to its SwiftUI equivalent. Tells you WHAT
@@ -14,15 +14,40 @@ Before writing or editing any code, design, or UI in this repo, read BOTH:
 - `GUIDELINES.md` - the HIG behavior contract. Permissions, camera/recording UX,
   full-screen, accessibility, and macOS conventions. Tells you HOW and WHEN to
   use those components, per phase.
+- The Figma prototype - the built screens (BROP-11 / BROP-20). It is the source
+  of truth for layout, placement, and navigation. Check it BEFORE you design a
+  screen or decide where a feature lives. Do not invent layout or navigation from
+  scratch, and do not ask the user a layout / placement question the prototype
+  already answers.
+
+### Using the Figma prototype
+
+- File key: `Kr2Zuxzng8LUxWFAlqkQs4` (a local duplicate of the macOS 26 kit).
+  Pages: 00 Cover / 01 Atoms / 02 Components / 03 Screens (14 screens).
+- Pull a screen with the Figma MCP tools: `get_screenshot`, `get_variable_defs`
+  (tokens with their SwiftUI mapping), `get_metadata`, `get_design_context`. The
+  desktop file often has only the Cover page loaded, so fetch a screen by its node
+  id directly with `fileKey` + `nodeId` instead of relying on `get_metadata` to
+  list pages.
+- Screen node ids are recorded in the design issues. The BROP-20 comment lists the
+  core screens, for example Library `4332:14362`, Take Review `4341:14620`,
+  Recordings `4340:14510`. When a node id is unknown, read the BROP-15 / BROP-20 /
+  BROP-21 comments before guessing.
+- Match the prototype's layout, navigation, and naming. When the prototype and an
+  older YouTrack text disagree, follow the prototype and update the issue text.
 
 This is not optional and not "only for UI tasks." Permissions, accessibility,
 menus, and shortcuts touch nearly every phase. Re-read the relevant section of
-each doc at the start of every task before changing code.
+each doc and the matching prototype screen at the start of every task before
+changing code.
 
 - BAD: open a BROP task and start writing SwiftUI from memory of macOS norms.
-- GOOD: read `DESIGN.md` + `GUIDELINES.md` (at minimum the sections the
-  per-phase checklist in GUIDELINES.md section 6 maps to this BROP phase), then
-  write code that cites the token / rule it follows.
+- BAD: ask the user "separate window or sidebar?" when a prototype screen already
+  shows the navigation (for example, a "Library" back button means in-window).
+- GOOD: read `DESIGN.md` + `GUIDELINES.md` (at minimum the sections the per-phase
+  checklist in GUIDELINES.md section 6 maps to this BROP phase), pull the matching
+  prototype screen, then write code that cites the token / rule / screen it
+  follows.
 
 ## Track all work in YouTrack (MANDATORY)
 
