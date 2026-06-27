@@ -9,7 +9,7 @@ APP_PATH := $(APP_DERIVED)/Build/Products/Debug/BroPrompter.app
 WINID := build/winid
 SHOTS := build/screenshots
 
-.PHONY: format lint hooks generate build run screenshot test uitest
+.PHONY: format lint hooks generate build run screenshot test
 
 ## format: Autofix all Swift sources to the Airbnb Swift Style Guide.
 format:
@@ -31,13 +31,9 @@ generate:
 build:
 	xcodebuild -scheme BroPrompter -destination 'platform=macOS' -configuration Debug build CODE_SIGN_IDENTITY="-"
 
-## test: Run headless unit/integration tests (Layer 1, BROP-29). Run `make generate` after any project.yml change.
+## test: Run headless unit/integration tests (BROP-29). Run `make generate` after any project.yml change.
 test:
 	xcodebuild test -scheme BroPrompter -destination 'platform=macOS' -configuration Debug -derivedDataPath $(APP_DERIVED) -only-testing:BroPrompterTests CODE_SIGN_IDENTITY="-"
-
-## uitest: Run the XCUITest end-to-end suite (Layer 2, BROP-30). Drives the real app and takes input focus while running.
-uitest:
-	xcodebuild test -scheme BroPrompter -destination 'platform=macOS' -configuration Debug -derivedDataPath $(APP_DERIVED) -only-testing:BroPrompterUITests CODE_SIGN_IDENTITY="-"
 
 ## run: Build (Debug, ad-hoc) and launch the app for manual/visual debugging.
 run:

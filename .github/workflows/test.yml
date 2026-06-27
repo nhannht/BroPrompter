@@ -7,7 +7,7 @@ on:
 
 jobs:
   unit-tests:
-    name: Unit and integration tests (Layer 1)
+    name: Unit and integration tests
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +17,5 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
-      # Layer 1 only: headless and deterministic. The XCUITest suite (Layer 2,
-      # `make uitest`) takes over input focus and runs locally, not in CI.
       - name: Run unit and integration tests
         run: make test
