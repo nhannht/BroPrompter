@@ -195,6 +195,13 @@ private struct TeleprompterReader: View {
       script: script,
       engine: engine,
       speed: speedBinding,
+      cameraEnabled: cameraEnabled,
+      cameras: session.availableCameras,
+      microphones: session.availableMicrophones,
+      qualities: qualityOptions,
+      selectedCameraID: $cameraDeviceID,
+      selectedMicID: $micDeviceID,
+      selectedQuality: qualityBinding,
       onRestart: { engine.restart()
         revealControls()
       },
@@ -203,6 +210,7 @@ private struct TeleprompterReader: View {
       onFaster: { changeSpeed(by: Self.speedStep) },
       onSmaller: { changeFont(by: -Self.fontStep) },
       onLarger: { changeFont(by: Self.fontStep) },
+      onToggleCamera: toggleCamera,
       onClose: { dismiss() }
     )
     .opacity(showControls ? 1 : 0)
@@ -237,6 +245,22 @@ private struct TeleprompterReader: View {
   /// The selected camera id, or `nil` to use the system default camera.
   private var selectedCameraID: String? {
     cameraDeviceID.isEmpty ? nil : cameraDeviceID
+  }
+
+  /// Bridges the raw stored quality to the picker's `CaptureQuality` selection.
+  private var qualityBinding: Binding<CaptureQuality> {
+    Binding(
+      get: { cameraQuality },
+      set: { cameraQualityRaw = $0.rawValue }
+    )
+  }
+
+  /// Qualities the picker offers: those the selected camera supports, or the
+  /// full list as a fallback before the camera has been queried (for example
+  /// when access has not yet been granted).
+  private var qualityOptions: [CaptureQuality] {
+    let supported = session.supportedQualities(forCameraID: selectedCameraID)
+    return supported.isEmpty ? CaptureQuality.allCases : supported
   }
 
   @ViewBuilder
@@ -277,6 +301,33 @@ private struct TeleprompterReader: View {
       session.start(cameraID: selectedCameraID, quality: cameraQuality)
     } else {
       session.stop()
+    }
+  }
+
+  /// Turns the camera background on or off from the transport. Enabling first
+  /// ensures camera authorization; the in-context pre-prompt and the denied
+  /// recovery path are added in the next commit.
+  private func toggleCamera() {
+    if cameraEnabled {
+      cameraEnabled = false
+    } else {
+      requestCameraAndEnable()
+    }
+    revealControls()
+  }
+
+  private func requestCameraAndEnable() {
+    switch permissions.status(for: .camera) {
+    case .authorized:
+      cameraEnabled = true
+
+    case .notDetermined:
+      Task {
+        if await permissions.request(.camera) { cameraEnabled = true }
+      }
+
+    default:
+      break
     }
   }
 

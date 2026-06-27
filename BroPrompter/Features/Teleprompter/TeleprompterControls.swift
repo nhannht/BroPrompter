@@ -17,12 +17,21 @@ struct TeleprompterControls: View {
   let engine: TeleprompterEngine
   @Binding var speed: Double
 
+  let cameraEnabled: Bool
+  let cameras: [CaptureDevice]
+  let microphones: [CaptureDevice]
+  let qualities: [CaptureQuality]
+  @Binding var selectedCameraID: String
+  @Binding var selectedMicID: String
+  @Binding var selectedQuality: CaptureQuality
+
   let onRestart: () -> Void
   let onTogglePlay: () -> Void
   let onSlower: () -> Void
   let onFaster: () -> Void
   let onSmaller: () -> Void
   let onLarger: () -> Void
+  let onToggleCamera: () -> Void
   let onClose: () -> Void
 
   var body: some View {
@@ -44,6 +53,8 @@ struct TeleprompterControls: View {
   // MARK: Private
 
   private let speedRange = TeleprompterEngine.minimumSpeed...300
+
+  @State private var showCameraSettings = false
 
   private var progressRow: some View {
     HStack(spacing: 12) {
@@ -86,6 +97,10 @@ struct TeleprompterControls: View {
       Divider().frame(height: 20)
 
       fontControl
+
+      Divider().frame(height: 20)
+
+      cameraControl
 
       Spacer()
 
@@ -145,5 +160,52 @@ struct TeleprompterControls: View {
       .accessibilityLabel("Larger text")
       .accessibilityIdentifier("teleprompterFontLarger")
     }
+  }
+
+  private var cameraControl: some View {
+    HStack(spacing: 8) {
+      Button(action: onToggleCamera) {
+        Image(systemName: cameraEnabled ? "video.fill" : "video.slash")
+      }
+      .keyboardShortcut("c", modifiers: [])
+      .accessibilityLabel(cameraEnabled ? "Turn camera off" : "Turn camera on")
+      .accessibilityIdentifier("teleprompterCamera")
+      .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
+
+      Button {
+        showCameraSettings.toggle()
+      } label: {
+        Image(systemName: "slider.horizontal.3")
+      }
+      .accessibilityLabel("Camera settings")
+      .accessibilityIdentifier("teleprompterCameraSettings")
+      .help("Choose camera, microphone, and quality")
+      .popover(isPresented: $showCameraSettings, arrowEdge: .bottom) {
+        cameraSettings
+      }
+    }
+  }
+
+  private var cameraSettings: some View {
+    Form {
+      Picker("Camera", selection: $selectedCameraID) {
+        Text("System Default").tag("")
+        ForEach(cameras) { Text($0.name).tag($0.id) }
+      }
+      .accessibilityIdentifier("teleprompterCameraPicker")
+
+      Picker("Microphone", selection: $selectedMicID) {
+        Text("System Default").tag("")
+        ForEach(microphones) { Text($0.name).tag($0.id) }
+      }
+      .accessibilityIdentifier("teleprompterMicPicker")
+
+      Picker("Quality", selection: $selectedQuality) {
+        ForEach(qualities) { Text($0.displayName).tag($0) }
+      }
+      .accessibilityIdentifier("teleprompterQualityPicker")
+    }
+    .padding()
+    .frame(width: 320)
   }
 }
