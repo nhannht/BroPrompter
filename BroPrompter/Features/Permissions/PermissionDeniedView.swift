@@ -3,45 +3,51 @@ import SwiftUI
 /// Shown when a capability is denied or restricted. Explains what is unavailable
 /// and links to System Settings so the user can re-enable it (GUIDELINES.md 1.1).
 struct PermissionDeniedView: View {
-    let feature: PermissionFeature
-    var onClose: () -> Void
 
-    @Environment(PermissionManager.self) private var permissions
+  // MARK: Internal
 
-    var body: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(.orange)
-                    .frame(width: 72, height: 72)
-                Image(systemName: feature.systemImage)
-                    .font(.system(size: 30))
-                    .foregroundStyle(.white)
-            }
-            .accessibilityHidden(true)
+  let feature: PermissionFeature
+  var onClose: () -> Void
 
-            Text(feature.title)
-                .font(.title2)
-                .fontWeight(.semibold)
+  var body: some View {
+    VStack(spacing: 16) {
+      ZStack {
+        Circle()
+          .fill(.orange)
+          .frame(width: 72, height: 72)
+        Image(systemName: feature.systemImage)
+          .font(.system(size: 30))
+          .foregroundStyle(.white)
+      }
+      .accessibilityHidden(true)
 
-            Text(feature.deniedMessage)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+      Text(feature.title)
+        .font(.title2)
+        .fontWeight(.semibold)
 
-            HStack(spacing: 12) {
-                Button("Not Now", action: onClose)
-                    .buttonStyle(.bordered)
+      Text(feature.deniedMessage)
+        .font(.body)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
 
-                Button("Open Settings") {
-                    permissions.openSystemSettings(for: feature)
-                }
-                .buttonStyle(.borderedProminent)
-            }
+      HStack(spacing: 12) {
+        Button("Not Now", action: onClose)
+          .buttonStyle(.bordered)
+
+        Button("Open Settings") {
+          permissions.openSystemSettings(for: feature)
         }
-        .padding(32)
-        .frame(width: 440)
-        .accessibilityElement(children: .contain)
+        .buttonStyle(.borderedProminent)
+      }
     }
+    .padding(32)
+    .frame(width: 440)
+    .accessibilityElement(children: .contain)
+  }
+
+  // MARK: Private
+
+  @Environment(PermissionManager.self) private var permissions
+
 }
