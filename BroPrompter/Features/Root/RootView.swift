@@ -110,15 +110,13 @@ struct RootView: View {
     )
   }
 
-  /// Take Review (AVKit player + actions) lands in the next commit; this
-  /// placeholder keeps the route navigable.
   private func takeReviewScreen(_ take: Take) -> some View {
-    VStack(spacing: 12) {
-      Text(take.fileName)
-        .font(.headline)
-      Button("All Takes") { route = .recordings }
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    TakeReviewView(
+      take: take,
+      onBack: { route = .recordings },
+      onDone: { route = .library },
+      onDeleted: { route = .recordings }
+    )
   }
 
   private func script(for id: UUID?) -> Script? {
