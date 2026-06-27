@@ -70,12 +70,25 @@ private struct TeleprompterReader: View {
             .onChange(of: context.date) { _, date in engine.tick(date) }
         }
         .allowsHitTesting(false)
+
+        // Tap toggles play/pause and drag scrubs. Kept as its own layer below
+        // the transport overlay so the controls stay hittable (an equivalent
+        // gesture on the container made the buttons report non-hittable).
+        Color.clear
+          .contentShape(Rectangle())
+          .onTapGesture { togglePlay() }
+          .gesture(scrubGesture)
+          .accessibilityHidden(true)
       }
-      .contentShape(Rectangle())
-      .onTapGesture { togglePlay() }
-      .gesture(scrubGesture)
       .overlay(alignment: .bottom) { controls }
-      .background(WindowReader { windowBox.window = $0 })
+      .background(WindowReader { window in
+        windowBox.window = window
+        // A just-opened teleprompter should be the key, frontmost window so its
+        // controls and shortcuts respond on the first interaction.
+        guard !didActivateWindow, let window else { return }
+        didActivateWindow = true
+        window.makeKeyAndOrderFront(nil)
+      })
       .focusable()
       .focusEffectDisabled()
       .focused($isFocused)
@@ -123,6 +136,7 @@ private struct TeleprompterReader: View {
   @State private var hideTask: Task<Void, Never>?
   @State private var windowBox = WindowBox()
   @State private var scrollMonitor: Any?
+  @State private var didActivateWindow = false
 
   @FocusState private var isFocused: Bool
 
