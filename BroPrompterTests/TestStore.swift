@@ -8,7 +8,7 @@ import SwiftData
 enum TestStore {
   /// A throwaway in-memory container for CRUD tests.
   static func inMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([Script.self])
+    let schema = Schema([Script.self, Take.self])
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
     return try ModelContainer(for: schema, configurations: [configuration])
   }
@@ -16,7 +16,7 @@ enum TestStore {
   /// An on-disk container at a caller-chosen URL, used to prove persistence
   /// across a container reopen.
   static func container(at url: URL) throws -> ModelContainer {
-    let schema = Schema([Script.self])
+    let schema = Schema([Script.self, Take.self])
     let configuration = ModelConfiguration(schema: schema, url: url)
     return try ModelContainer(for: schema, configurations: [configuration])
   }

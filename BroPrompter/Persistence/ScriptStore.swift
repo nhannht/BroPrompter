@@ -16,7 +16,7 @@ enum ScriptStore {
 
   /// The shared scripts container.
   static let container: ModelContainer = {
-    let schema = Schema([Script.self])
+    let schema = Schema([Script.self, Take.self])
     do {
       return try ModelContainer(for: schema, configurations: [configuration(for: schema)])
     } catch {
