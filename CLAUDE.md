@@ -140,6 +140,31 @@ window, do not use full-screen capture tools.
 - This captures app state only; it does not drive the UI. To exercise
   create/edit/delete, capture while the user interacts, or ask the user to act.
 
+## Testing (BROP-29 / BROP-30)
+
+P1 ships an automated two-layer test suite. The green suite is the verification
+evidence for the feature; do not rely on manual clicking.
+
+- `make test` runs Layer 1: headless unit/integration tests (Swift Testing,
+  `BroPrompterTests`) for ReadingStats, Script CRUD, persistence-across-reopen,
+  and the import rule. Fast, no focus steal, CI-safe.
+- `make uitest` runs Layer 2: XCUITest end-to-end (`BroPrompterUITests`) driving
+  the real app. macOS has no headless UI simulator, so this synthesizes input
+  and takes over the desktop input focus while it runs (tens of seconds). Do not
+  type elsewhere during a run.
+- After any `project.yml` change, run `make generate` before `make test` /
+  `make uitest` (the `.xcodeproj` and its shared scheme are generated).
+- The suite never touches the real store: `ScriptStore` uses an in-memory store
+  under a hosted test run and a throwaway `-uitests` store (reset with
+  `-uitestsReset`) when the app is launched by XCUITest. Import is injected via
+  `UITEST_IMPORT_TITLE` / `UITEST_IMPORT_BODY` so it skips the sandboxed open
+  panel. These hooks are inert in normal runs.
+- One-time per machine: the first `make uitest` may prompt to grant Accessibility
+  (automation) to the terminal, the same way the screenshot tooling needed Screen
+  Recording.
+- CI (`.github/workflows/test.yml`) runs Layer 1 on every push / pull request.
+  Layer 2 runs locally because it grabs focus.
+
 ## Docs are linted
 
 `DESIGN.md` and `GUIDELINES.md` are checked with Vale against Google's
