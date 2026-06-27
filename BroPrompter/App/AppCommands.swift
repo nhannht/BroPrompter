@@ -64,8 +64,7 @@ struct AppCommands: Commands {
     guard panel.runModal() == .OK, let url = panel.url else { return }
     guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
 
-    let title = url.deletingPathExtension().lastPathComponent
-    let script = Script(title: title, body: contents)
+    let script = Script.imported(from: url, contents: contents)
     context.insert(script)
     selectedScriptID?.wrappedValue = script.id
   }

@@ -1,6 +1,8 @@
 import Foundation
 import SwiftData
 
+// MARK: - Script
+
 /// A teleprompter script: a title plus the plain-text body the user reads.
 ///
 /// The model is CloudKit-safe by construction so iCloud sync can be turned on
@@ -29,4 +31,15 @@ final class Script {
   var body = ""
   var createdAt = Date.now
   var updatedAt = Date.now
+}
+
+// MARK: - Import
+
+extension Script {
+  /// Builds a script imported from a text file: the title is the file name
+  /// without its extension, the body is the file's contents. Pure (no disk
+  /// access) so it can be unit-tested with a synthesized URL and literal text.
+  static func imported(from url: URL, contents: String) -> Script {
+    Script(title: url.deletingPathExtension().lastPathComponent, body: contents)
+  }
 }
