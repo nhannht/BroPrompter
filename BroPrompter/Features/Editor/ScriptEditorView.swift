@@ -7,11 +7,10 @@ import SwiftUI
 /// an empty state when nothing is selected. Editing autosaves through SwiftData.
 struct ScriptEditorView: View {
   let script: Script?
-  let startTeleprompter: () -> Void
 
   var body: some View {
     if let script {
-      ScriptEditorContent(script: script, startTeleprompter: startTeleprompter)
+      ScriptEditorContent(script: script)
         // Reset the editor's focus and field state when switching scripts.
         .id(script.id)
     } else {
@@ -33,8 +32,6 @@ private struct ScriptEditorContent: View {
   // MARK: Internal
 
   @Bindable var script: Script
-
-  let startTeleprompter: () -> Void
 
   var body: some View {
     VStack(spacing: 0) {
@@ -61,15 +58,19 @@ private struct ScriptEditorContent: View {
     }
     .toolbar {
       ToolbarItem {
-        Button(action: startTeleprompter) {
-          Label("Start Teleprompter", systemImage: "camera.viewfinder")
+        Button {
+          openWindow(id: "teleprompter", value: script.id)
+        } label: {
+          Label("Play in Teleprompter", systemImage: "play.fill")
         }
-        .help("Start the camera teleprompter")
+        .help("Play in teleprompter")
       }
     }
   }
 
   // MARK: Private
+
+  @Environment(\.openWindow) private var openWindow
 
   private var titleBinding: Binding<String> {
     Binding(

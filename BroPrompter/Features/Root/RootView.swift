@@ -3,10 +3,9 @@ import SwiftUI
 
 /// App shell. A `NavigationSplitView` with the script library sidebar and the
 /// editor detail. It owns the library selection (persisted across launches and
-/// shared with the menu commands) and the delete-confirmation alert, and it
-/// still hosts the in-context camera permission flow from P0: access is
-/// requested only when the user starts the teleprompter, never at launch
-/// (GUIDELINES.md 1.1).
+/// shared with the menu commands) and the delete-confirmation alert. Playing a
+/// script opens the text teleprompter in its own window (BROP-4); the P0 camera
+/// permission flow is re-attached to an in-teleprompter toggle in P3 (BROP-5).
 struct RootView: View {
 
   // MARK: Internal
@@ -19,7 +18,7 @@ struct RootView: View {
         requestDelete: { pendingDeleteID = $0 }
       )
     } detail: {
-      ScriptEditorView(script: selectedScript, startTeleprompter: startCameraFlow)
+      ScriptEditorView(script: selectedScript)
     }
     .focusedSceneValue(\.selectedScriptID, selectionBinding)
     .focusedSceneValue(\.pendingDeleteScriptID, $pendingDeleteID)
@@ -33,46 +32,16 @@ struct RootView: View {
     } message: { script in
       Text("\"\(displayTitle(script))\" will be permanently deleted.")
     }
-    .sheet(item: $flow) { flow in
-      switch flow {
-      case .prePrompt(let feature):
-        PermissionPrePromptView(feature: feature) { granted in
-          self.flow = granted ? nil : .denied(feature)
-        } onCancel: {
-          self.flow = nil
-        }
-
-      case .denied(let feature):
-        PermissionDeniedView(feature: feature) {
-          self.flow = nil
-        }
-      }
-    }
   }
 
   // MARK: Private
 
-  /// Drives the permission sheet: either the explainer or the denied state.
-  private enum PermissionFlow: Identifiable {
-    case prePrompt(PermissionFeature)
-    case denied(PermissionFeature)
-
-    var id: String {
-      switch self {
-      case .prePrompt(let feature): "prePrompt-\(feature.id)"
-      case .denied(let feature): "denied-\(feature.id)"
-      }
-    }
-  }
-
-  @Environment(PermissionManager.self) private var permissions
   @Environment(\.modelContext) private var modelContext
   @Query(sort: \Script.updatedAt, order: .reverse)
   private var scripts: [Script]
 
   @SceneStorage("selectedScriptID") private var selectedScriptRaw = ""
   @State private var pendingDeleteID: UUID?
-  @State private var flow: PermissionFlow?
 
   /// Bridges the persisted `String` selection to the `UUID?` the list uses.
   private var selectionBinding: Binding<UUID?> {
@@ -112,21 +81,5 @@ struct RootView: View {
     }
     modelContext.delete(script)
     pendingDeleteID = nil
-  }
-
-  /// Routes to the correct permission step based on the current status.
-  private func startCameraFlow() {
-    let feature = PermissionFeature.camera
-    switch permissions.status(for: feature) {
-    case .authorized:
-      // Access already granted. The teleprompter opens here in P3.
-      flow = nil
-    case .notDetermined:
-      flow = .prePrompt(feature)
-    case .denied, .restricted:
-      flow = .denied(feature)
-    @unknown default:
-      flow = .prePrompt(feature)
-    }
   }
 }

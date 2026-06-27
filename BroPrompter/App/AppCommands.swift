@@ -32,13 +32,15 @@ struct AppCommands: Commands {
 
       Divider()
 
-      Button("Play in Teleprompter") { }
+      Button("Play in Teleprompter", action: playInTeleprompter)
         .keyboardShortcut(.return, modifiers: .command)
-        .disabled(true)
+        .disabled(selectedScriptID?.wrappedValue == nil)
     }
   }
 
   // MARK: Private
+
+  @Environment(\.openWindow) private var openWindow
 
   @FocusedValue(\.selectedScriptID) private var selectedScriptID
   @FocusedValue(\.pendingDeleteScriptID) private var pendingDeleteScriptID
@@ -62,6 +64,13 @@ struct AppCommands: Commands {
     let script = Script()
     context.insert(script)
     selectedScriptID?.wrappedValue = script.id
+  }
+
+  /// Opens the selected script in the teleprompter window (BROP-4). Text only:
+  /// no camera permission is needed to read (the camera background lands in P3).
+  private func playInTeleprompter() {
+    guard let id = selectedScriptID?.wrappedValue else { return }
+    openWindow(id: "teleprompter", value: id)
   }
 
   @MainActor
