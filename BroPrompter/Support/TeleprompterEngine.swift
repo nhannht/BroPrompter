@@ -147,8 +147,9 @@ extension TeleprompterEngine {
     return max(0, maxOffset - offset) / speed
   }
 
-  /// Formats a duration as `m:ss` (clamped at zero).
-  static func clockString(_ seconds: TimeInterval) -> String {
+  /// Formats a duration as `m:ss` (clamped at zero). Pure, so it is `nonisolated`
+  /// and can be reused off the main actor (for example by `RecordingsList`).
+  nonisolated static func clockString(_ seconds: TimeInterval) -> String {
     let total = Int(max(0, seconds).rounded())
     return "\(total / 60):" + String(format: "%02d", total % 60)
   }
