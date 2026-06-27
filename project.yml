@@ -1,0 +1,36 @@
+name: BroPrompter
+
+options:
+  bundleIdPrefix: com.nhannht
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  BroPrompter:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: BroPrompter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nhannht.BroPrompter
+        PRODUCT_NAME: BroPrompter
+        INFOPLIST_FILE: BroPrompter/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BroPrompter/BroPrompter.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        COMBINE_HIDPI_IMAGES: YES
