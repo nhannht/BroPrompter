@@ -36,6 +36,16 @@ struct AppCommands: Commands {
         .keyboardShortcut(.return, modifiers: .command)
         .disabled(selectedScriptID?.wrappedValue == nil)
     }
+
+    CommandMenu("Go") {
+      Button("Library") { rootRoute?.wrappedValue = .library }
+        .keyboardShortcut("l", modifiers: [.command, .shift])
+        .disabled(rootRoute == nil)
+
+      Button("Recordings") { rootRoute?.wrappedValue = .recordings }
+        .keyboardShortcut("r", modifiers: [.command, .shift])
+        .disabled(rootRoute == nil)
+    }
   }
 
   // MARK: Private
@@ -44,6 +54,7 @@ struct AppCommands: Commands {
 
   @FocusedValue(\.selectedScriptID) private var selectedScriptID
   @FocusedValue(\.pendingDeleteScriptID) private var pendingDeleteScriptID
+  @FocusedValue(\.rootRoute) private var rootRoute
 
   @MainActor
   private var context: ModelContext {

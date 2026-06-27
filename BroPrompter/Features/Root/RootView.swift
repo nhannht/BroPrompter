@@ -1,16 +1,62 @@
 import SwiftData
 import SwiftUI
 
+// MARK: - AppRoute
+
+/// The active top-level screen in the main window (BROP-7). Library is the
+/// default; Recordings and Take Review replace the whole window to match the
+/// prototype's full-window navigation (back through the in-window chrome).
+enum AppRoute {
+  case library
+  case recordings
+  case takeReview(Take)
+}
+
+// MARK: - RootView
+
 /// App shell. A `NavigationSplitView` with the script library sidebar and the
-/// editor detail. It owns the library selection (persisted across launches and
-/// shared with the menu commands) and the delete-confirmation alert. Playing a
-/// script opens the text teleprompter in its own window (BROP-4); the P0 camera
-/// permission flow is re-attached to an in-teleprompter toggle in P3 (BROP-5).
+/// editor detail, plus the full-window Recordings and Take Review screens routed
+/// in from the Library toolbar (BROP-7). It owns the library selection (persisted
+/// across launches and shared with the menu commands) and the delete-confirmation
+/// alert. Playing a script opens the text teleprompter in its own window (BROP-4);
+/// the P0 camera permission flow is re-attached to an in-teleprompter toggle in
+/// P3 (BROP-5).
 struct RootView: View {
 
   // MARK: Internal
 
   var body: some View {
+    Group {
+      switch route {
+      case .library:
+        libraryScreen
+
+      case .recordings:
+        RecordingsView(
+          onBack: { route = .library },
+          onOpen: { route = .takeReview($0) }
+        )
+
+      case .takeReview(let take):
+        takeReviewScreen(take)
+      }
+    }
+    .focusedSceneValue(\.rootRoute, $route)
+  }
+
+  // MARK: Private
+
+  @Environment(\.modelContext) private var modelContext
+  @Query(sort: \Script.updatedAt, order: .reverse)
+  private var scripts: [Script]
+
+  @SceneStorage("selectedScriptID") private var selectedScriptRaw = ""
+  @State private var pendingDeleteID: UUID?
+  @State private var route = AppRoute.library
+
+  /// The default Library screen: the script sidebar and editor, with a toolbar
+  /// entry into the recordings browser.
+  private var libraryScreen: some View {
     NavigationSplitView {
       ScriptSidebar(
         scripts: scripts,
@@ -19,6 +65,13 @@ struct RootView: View {
       )
     } detail: {
       ScriptEditorView(script: selectedScript)
+    }
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Button("Recordings") { route = .recordings }
+          .help("Browse recordings")
+          .accessibilityIdentifier("libraryRecordings")
+      }
     }
     .focusedSceneValue(\.selectedScriptID, selectionBinding)
     .focusedSceneValue(\.pendingDeleteScriptID, $pendingDeleteID)
@@ -33,15 +86,6 @@ struct RootView: View {
       Text("\"\(displayTitle(script))\" will be permanently deleted.")
     }
   }
-
-  // MARK: Private
-
-  @Environment(\.modelContext) private var modelContext
-  @Query(sort: \Script.updatedAt, order: .reverse)
-  private var scripts: [Script]
-
-  @SceneStorage("selectedScriptID") private var selectedScriptRaw = ""
-  @State private var pendingDeleteID: UUID?
 
   /// Bridges the persisted `String` selection to the `UUID?` the list uses.
   private var selectionBinding: Binding<UUID?> {
@@ -64,6 +108,17 @@ struct RootView: View {
       get: { pendingDeleteID != nil },
       set: { isPresented in if !isPresented { pendingDeleteID = nil } }
     )
+  }
+
+  /// Take Review (AVKit player + actions) lands in the next commit; this
+  /// placeholder keeps the route navigable.
+  private func takeReviewScreen(_ take: Take) -> some View {
+    VStack(spacing: 12) {
+      Text(take.fileName)
+        .font(.headline)
+      Button("All Takes") { route = .recordings }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private func script(for id: UUID?) -> Script? {

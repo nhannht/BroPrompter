@@ -17,6 +17,13 @@ extension FocusedValues {
     get { self[PendingDeleteScriptIDKey.self] }
     set { self[PendingDeleteScriptIDKey.self] = newValue }
   }
+
+  /// The active window's top-level route, so the Go menu can navigate between the
+  /// library and the recordings browser (BROP-7).
+  var rootRoute: Binding<AppRoute>? {
+    get { self[RootRouteKey.self] }
+    set { self[RootRouteKey.self] = newValue }
+  }
 }
 
 // MARK: - SelectedScriptIDKey
@@ -29,4 +36,10 @@ private struct SelectedScriptIDKey: FocusedValueKey {
 
 private struct PendingDeleteScriptIDKey: FocusedValueKey {
   typealias Value = Binding<UUID?>
+}
+
+// MARK: - RootRouteKey
+
+private struct RootRouteKey: FocusedValueKey {
+  typealias Value = Binding<AppRoute>
 }
