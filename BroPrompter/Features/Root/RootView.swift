@@ -1,39 +1,37 @@
+import SwiftData
 import SwiftUI
 
-/// App shell. A NavigationSplitView placeholder for the script sidebar + detail
-/// area built out in later phases. For P0 it also hosts the in-context camera
-/// permission flow: access is requested when the user opens the camera
-/// teleprompter, never at launch (GUIDELINES.md 1.1).
+/// App shell. A `NavigationSplitView` with the script library sidebar and the
+/// editor detail. It owns the library selection (persisted across launches and
+/// shared with the menu commands) and the delete-confirmation alert, and it
+/// still hosts the in-context camera permission flow from P0: access is
+/// requested only when the user starts the teleprompter, never at launch
+/// (GUIDELINES.md 1.1).
 struct RootView: View {
 
   // MARK: Internal
 
   var body: some View {
     NavigationSplitView {
-      List {
-        Section("Scripts") {
-          Text("No scripts yet")
-            .foregroundStyle(.secondary)
-        }
-      }
-      .navigationTitle("BroPrompter")
-      .frame(minWidth: 200)
+      ScriptSidebar(
+        scripts: scripts,
+        selection: selectionBinding,
+        requestDelete: { pendingDeleteID = $0 }
+      )
     } detail: {
-      VStack(spacing: 16) {
-        Image(systemName: "camera.viewfinder")
-          .font(.system(size: 48))
-          .foregroundStyle(.secondary)
-          .accessibilityHidden(true)
-        Text("Camera teleprompter")
-          .font(.title2)
-        Text("Set up camera access to read while looking at the lens.")
-          .font(.body)
-          .foregroundStyle(.secondary)
-          .multilineTextAlignment(.center)
-        Button("Open camera teleprompter", action: startCameraFlow)
-          .buttonStyle(.borderedProminent)
-      }
-      .padding()
+      ScriptEditorView(script: selectedScript, startTeleprompter: startCameraFlow)
+    }
+    .focusedSceneValue(\.selectedScriptID, selectionBinding)
+    .focusedSceneValue(\.pendingDeleteScriptID, $pendingDeleteID)
+    .alert(
+      "Delete script?",
+      isPresented: deleteAlertIsPresented,
+      presenting: scriptPendingDeletion
+    ) { script in
+      Button("Delete", role: .destructive) { delete(script) }
+      Button("Cancel", role: .cancel) { }
+    } message: { script in
+      Text("\"\(displayTitle(script))\" will be permanently deleted.")
     }
     .sheet(item: $flow) { flow in
       switch flow {
@@ -68,9 +66,55 @@ struct RootView: View {
   }
 
   @Environment(PermissionManager.self) private var permissions
+  @Environment(\.modelContext) private var modelContext
+  @Query(sort: \Script.updatedAt, order: .reverse)
+  private var scripts: [Script]
+
+  @SceneStorage("selectedScriptID") private var selectedScriptRaw = ""
+  @State private var pendingDeleteID: UUID?
   @State private var flow: PermissionFlow?
 
-  /// Routes to the correct step based on the current authorization status.
+  /// Bridges the persisted `String` selection to the `UUID?` the list uses.
+  private var selectionBinding: Binding<UUID?> {
+    Binding(
+      get: { selectedScriptRaw.isEmpty ? nil : UUID(uuidString: selectedScriptRaw) },
+      set: { selectedScriptRaw = $0?.uuidString ?? "" }
+    )
+  }
+
+  private var selectedScript: Script? {
+    script(for: selectionBinding.wrappedValue)
+  }
+
+  private var scriptPendingDeletion: Script? {
+    script(for: pendingDeleteID)
+  }
+
+  private var deleteAlertIsPresented: Binding<Bool> {
+    Binding(
+      get: { pendingDeleteID != nil },
+      set: { isPresented in if !isPresented { pendingDeleteID = nil } }
+    )
+  }
+
+  private func script(for id: UUID?) -> Script? {
+    guard let id else { return nil }
+    return scripts.first { $0.id == id }
+  }
+
+  private func displayTitle(_ script: Script) -> String {
+    script.title.isEmpty ? "Untitled Script" : script.title
+  }
+
+  private func delete(_ script: Script) {
+    if script.id == selectionBinding.wrappedValue {
+      selectionBinding.wrappedValue = nil
+    }
+    modelContext.delete(script)
+    pendingDeleteID = nil
+  }
+
+  /// Routes to the correct permission step based on the current status.
   private func startCameraFlow() {
     let feature = PermissionFeature.camera
     switch permissions.status(for: feature) {

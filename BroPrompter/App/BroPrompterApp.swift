@@ -8,6 +8,10 @@ struct BroPrompterApp: App {
         .environment(permissions)
     }
     .defaultSize(width: 1100, height: 720)
+    .modelContainer(ScriptStore.container)
+    .commands {
+      AppCommands()
+    }
 
     Settings {
       SettingsView()
