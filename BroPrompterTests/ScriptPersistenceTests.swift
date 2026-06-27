@@ -20,6 +20,8 @@ struct ScriptPersistenceTests {
     do {
       let container = try TestStore.container(at: url)
       let script = Script(title: "Persisted", body: "stays on disk")
+      script.fontSize = 72
+      script.scrollSpeed = 90
       savedID = script.id
       container.mainContext.insert(script)
       try container.mainContext.save()
@@ -32,5 +34,7 @@ struct ScriptPersistenceTests {
     #expect(fetched.first?.id == savedID)
     #expect(fetched.first?.title == "Persisted")
     #expect(fetched.first?.body == "stays on disk")
+    #expect(fetched.first?.fontSize == 72)
+    #expect(fetched.first?.scrollSpeed == 90)
   }
 }

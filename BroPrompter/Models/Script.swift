@@ -31,6 +31,13 @@ final class Script {
   var body = ""
   var createdAt = Date.now
   var updatedAt = Date.now
+
+  /// Teleprompter reading-surface settings, persisted per script (DESIGN.md 3.3):
+  /// the reading font size in points and the auto-scroll speed in points/second.
+  /// Both keep CloudKit-safe defaults so sync can be turned on later (BROP-27)
+  /// without a migration.
+  var fontSize = 48.0
+  var scrollSpeed = 60.0
 }
 
 // MARK: - Import
