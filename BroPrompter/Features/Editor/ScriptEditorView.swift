@@ -44,6 +44,7 @@ private struct ScriptEditorContent: View {
         .padding(.horizontal)
         .padding(.vertical, 12)
         .accessibilityLabel("Script title")
+        .accessibilityIdentifier("scriptTitleField")
 
       Divider()
 
@@ -52,6 +53,7 @@ private struct ScriptEditorContent: View {
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 12)
         .accessibilityLabel("Script body")
+        .accessibilityIdentifier("scriptBodyEditor")
 
       Divider()
 
@@ -92,8 +94,10 @@ private struct ScriptEditorContent: View {
   private var footer: some View {
     HStack {
       Text("\(ReadingStats.wordCount(of: script.body)) words")
+        .accessibilityIdentifier("wordCountLabel")
       Spacer()
       Text("~\(ReadingStats.readMinutes(of: script.body)) min")
+        .accessibilityIdentifier("readTimeLabel")
     }
     .font(.caption)
     .foregroundStyle(.secondary)

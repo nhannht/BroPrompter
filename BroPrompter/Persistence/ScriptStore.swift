@@ -36,11 +36,34 @@ enum ScriptStore {
   }
 
   private static func configuration(for schema: Schema) -> ModelConfiguration {
+    let arguments = ProcessInfo.processInfo.arguments
+    if arguments.contains("-uitests") {
+      let url = uiTestStoreURL()
+      if arguments.contains("-uitestsReset") {
+        removeStore(at: url)
+      }
+      return ModelConfiguration(schema: schema, url: url)
+    }
     if isRunningHostedTests {
       return ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
     }
     // CloudKit flip later (BROP-27):
     // ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
     return ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+  }
+
+  /// A fixed temporary store the UI tests own (BROP-30): isolated from the real
+  /// store and stable across an in-test relaunch.
+  private static func uiTestStoreURL() -> URL {
+    let directory = URL.applicationSupportDirectory.appending(path: "UITests", directoryHint: .isDirectory)
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory.appending(path: "uitests.store")
+  }
+
+  private static func removeStore(at url: URL) {
+    let manager = FileManager.default
+    for suffix in ["", "-wal", "-shm"] {
+      try? manager.removeItem(at: URL(fileURLWithPath: url.path(percentEncoded: false) + suffix))
+    }
   }
 }
