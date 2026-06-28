@@ -294,9 +294,7 @@ private struct TeleprompterReader: View {
 
   private var controls: some View {
     TeleprompterControls(
-      script: script,
       engine: engine,
-      speed: speedBinding,
       cameraEnabled: cameraEnabled,
       cameras: session.availableCameras,
       microphones: session.availableMicrophones,
@@ -327,16 +325,6 @@ private struct TeleprompterReader: View {
     // so its buttons show the standard accent focus ring (BROP-23 / Full Keyboard
     // Access), while the scrolling text stays ring-free.
     .focusEffectDisabled(false)
-  }
-
-  private var speedBinding: Binding<Double> {
-    Binding(
-      get: { engine.speed },
-      set: { newValue in
-        engine.speed = newValue
-        script.scrollSpeed = newValue
-      }
-    )
   }
 
   /// Whether the live camera is currently feeding the background.

@@ -2,20 +2,19 @@ import SwiftUI
 
 // MARK: - TeleprompterControls
 
-/// The floating transport for the teleprompter (BROP-4): restart, play/pause,
-/// live speed and font-size controls, a progress bar with elapsed and remaining
-/// time, and a close button. Every control carries a VoiceOver label, an
-/// accessibility identifier, and a keyboard shortcut so the surface is fully
-/// keyboard-operable (GUIDELINES.md sections 4 and 5). The view is presentation
-/// only: all side effects run through the closures the reader passes in.
+/// The floating transport for the teleprompter (BROP-4, BROP-47): a compact pill
+/// matching the prototype (07 4335:14397) - restart, play/pause, a speed
+/// multiplier, the camera toggle, the record button, an overflow menu for text
+/// size and capture settings, and close. Every control carries a VoiceOver label,
+/// an accessibility identifier, and (through the Playback menu) a keyboard
+/// shortcut, so the surface is fully keyboard-operable (GUIDELINES.md 4 and 5).
+/// The view is presentation only: all side effects run through the closures the
+/// reader passes in.
 struct TeleprompterControls: View {
 
   // MARK: Internal
 
-  @Bindable var script: Script
-
   let engine: TeleprompterEngine
-  @Binding var speed: Double
 
   let cameraEnabled: Bool
   let cameras: [CaptureDevice]
@@ -42,42 +41,18 @@ struct TeleprompterControls: View {
   let onClose: () -> Void
 
   var body: some View {
-    VStack(spacing: 10) {
-      progressRow
-      transportRow
-    }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
-    .background(.bar, in: .rect(cornerRadius: 16))
-    .overlay(
-      RoundedRectangle(cornerRadius: 16)
-        .strokeBorder(Color(nsColor: .separatorColor))
-    )
-    .frame(maxWidth: 720)
-    .padding()
+    transportRow
+      .labelStyle(.iconOnly)
+      .buttonStyle(.borderless)
+      .controlSize(.large)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
+      .background(.bar, in: .capsule)
+      .overlay(Capsule().strokeBorder(Color(nsColor: .separatorColor)))
+      .padding()
   }
 
   // MARK: Private
-
-  private let speedRange = TeleprompterEngine.minimumSpeed...TeleprompterEngine.maximumSpeed
-
-  @State private var showCameraSettings = false
-
-  private var progressRow: some View {
-    HStack(spacing: 12) {
-      Text(TeleprompterEngine.clockString(engine.elapsed))
-        .accessibilityLabel("Elapsed time")
-        .accessibilityIdentifier("teleprompterElapsed")
-      ProgressView(value: engine.progress)
-        .accessibilityLabel("Reading progress")
-        .accessibilityIdentifier("teleprompterProgress")
-      Text("-" + TeleprompterEngine.clockString(engine.remaining))
-        .accessibilityLabel("Remaining time")
-        .accessibilityIdentifier("teleprompterRemaining")
-    }
-    .font(.caption.monospacedDigit())
-    .foregroundStyle(.secondary)
-  }
 
   private var transportRow: some View {
     HStack(spacing: 16) {
@@ -104,18 +79,14 @@ struct TeleprompterControls: View {
 
       Divider().frame(height: 20)
 
-      fontControl
-
-      Divider().frame(height: 20)
-
-      cameraControl
+      cameraButton
         .disabled(cameraControlDisabled)
-
-      Divider().frame(height: 20)
 
       recordButton
 
-      Spacer()
+      Divider().frame(height: 20)
+
+      overflowMenu
 
       Button(action: onClose) {
         Label("Close", systemImage: "xmark")
@@ -124,28 +95,29 @@ struct TeleprompterControls: View {
       .help("Close the teleprompter")
       .minimumHitTarget()
     }
-    .labelStyle(.iconOnly)
-    .buttonStyle(.borderless)
-    .controlSize(.large)
   }
 
+  /// Speed shown as a multiplier of the default scroll speed, matching the
+  /// prototype's "- 1.0x +". Display only: the engine stays in points/second and
+  /// the buttons reuse the reader's slower/faster nudges.
   private var speedControl: some View {
     HStack(spacing: 8) {
       Button(action: onSlower) {
-        Image(systemName: "tortoise")
+        Image(systemName: "minus")
       }
       .accessibilityLabel("Slower")
       .accessibilityIdentifier("teleprompterSlower")
       .minimumHitTarget()
 
-      Slider(value: $speed, in: speedRange)
-        .frame(width: 120)
+      Text(speedLabel)
+        .font(.callout.monospacedDigit())
+        .frame(minWidth: 40)
         .accessibilityLabel("Scroll speed")
-        .accessibilityValue("\(Int(speed)) points per second")
+        .accessibilityValue(speedLabel)
         .accessibilityIdentifier("teleprompterSpeed")
 
       Button(action: onFaster) {
-        Image(systemName: "hare")
+        Image(systemName: "plus")
       }
       .accessibilityLabel("Faster")
       .accessibilityIdentifier("teleprompterFaster")
@@ -153,53 +125,18 @@ struct TeleprompterControls: View {
     }
   }
 
-  private var fontControl: some View {
-    HStack(spacing: 8) {
-      Button(action: onSmaller) {
-        Image(systemName: "textformat.size.smaller")
-      }
-      .accessibilityLabel("Smaller text")
-      .accessibilityIdentifier("teleprompterFontSmaller")
-      .minimumHitTarget()
-
-      Text("\(Int(script.fontSize))")
-        .font(.callout.monospacedDigit())
-        .frame(minWidth: 28)
-        .accessibilityLabel("Font size \(Int(script.fontSize)) points")
-        .accessibilityIdentifier("teleprompterFontSize")
-
-      Button(action: onLarger) {
-        Image(systemName: "textformat.size.larger")
-      }
-      .accessibilityLabel("Larger text")
-      .accessibilityIdentifier("teleprompterFontLarger")
-      .minimumHitTarget()
-    }
+  private var speedLabel: String {
+    String(format: "%.1fx", engine.speed / Preferences.defaultScrollSpeed)
   }
 
-  private var cameraControl: some View {
-    HStack(spacing: 8) {
-      Button(action: onToggleCamera) {
-        Image(systemName: cameraEnabled ? "video.fill" : "video.slash")
-      }
-      .accessibilityLabel(cameraEnabled ? "Turn camera off" : "Turn camera on")
-      .accessibilityIdentifier("teleprompterCamera")
-      .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
-      .minimumHitTarget()
-
-      Button {
-        showCameraSettings.toggle()
-      } label: {
-        Image(systemName: "slider.horizontal.3")
-      }
-      .accessibilityLabel("Capture settings")
-      .accessibilityIdentifier("teleprompterCameraSettings")
-      .help("Choose camera, microphone, quality, countdown, and codec")
-      .minimumHitTarget()
-      .popover(isPresented: $showCameraSettings, arrowEdge: .bottom) {
-        cameraSettings
-      }
+  private var cameraButton: some View {
+    Button(action: onToggleCamera) {
+      Image(systemName: cameraEnabled ? "video.fill" : "video.slash")
     }
+    .accessibilityLabel(cameraEnabled ? "Turn camera off" : "Turn camera on")
+    .accessibilityIdentifier("teleprompterCamera")
+    .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
+    .minimumHitTarget()
   }
 
   private var recordButton: some View {
@@ -214,38 +151,50 @@ struct TeleprompterControls: View {
     .minimumHitTarget()
   }
 
-  private var cameraSettings: some View {
-    Form {
-      Picker("Camera", selection: $selectedCameraID) {
-        Text("System Default").tag("")
-        ForEach(cameras) { Text($0.name).tag($0.id) }
-      }
-      .accessibilityIdentifier("teleprompterCameraPicker")
+  /// Text size and capture settings, kept out of the inline pill so it stays
+  /// compact (BROP-47). The camera toggle and record button stay inline for
+  /// discoverability (BROP-43).
+  private var overflowMenu: some View {
+    Menu {
+      Button("Larger Text", systemImage: "textformat.size.larger", action: onLarger)
+      Button("Smaller Text", systemImage: "textformat.size.smaller", action: onSmaller)
+      Section("Capture") {
+        Picker("Camera", selection: $selectedCameraID) {
+          Text("System Default").tag("")
+          ForEach(cameras) { Text($0.name).tag($0.id) }
+        }
+        .accessibilityIdentifier("teleprompterCameraPicker")
 
-      Picker("Microphone", selection: $selectedMicID) {
-        Text("System Default").tag("")
-        ForEach(microphones) { Text($0.name).tag($0.id) }
-      }
-      .accessibilityIdentifier("teleprompterMicPicker")
+        Picker("Microphone", selection: $selectedMicID) {
+          Text("System Default").tag("")
+          ForEach(microphones) { Text($0.name).tag($0.id) }
+        }
+        .accessibilityIdentifier("teleprompterMicPicker")
 
-      Picker("Quality", selection: $selectedQuality) {
-        ForEach(qualities) { Text($0.displayName).tag($0) }
-      }
-      .accessibilityIdentifier("teleprompterQualityPicker")
+        Picker("Quality", selection: $selectedQuality) {
+          ForEach(qualities) { Text($0.displayName).tag($0) }
+        }
+        .accessibilityIdentifier("teleprompterQualityPicker")
 
-      Picker("Countdown", selection: $selectedCountdown) {
-        Text("Off").tag(0)
-        Text("3s").tag(3)
-        Text("5s").tag(5)
-      }
-      .accessibilityIdentifier("teleprompterCountdownPicker")
+        Picker("Countdown", selection: $selectedCountdown) {
+          Text("Off").tag(0)
+          Text("3s").tag(3)
+          Text("5s").tag(5)
+        }
+        .accessibilityIdentifier("teleprompterCountdownPicker")
 
-      Picker("Codec", selection: $selectedCodec) {
-        ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
+        Picker("Codec", selection: $selectedCodec) {
+          ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
+        }
+        .accessibilityIdentifier("teleprompterCodecPicker")
       }
-      .accessibilityIdentifier("teleprompterCodecPicker")
+    } label: {
+      Image(systemName: "ellipsis.circle")
     }
-    .padding()
-    .frame(width: 320)
+    .menuIndicator(.hidden)
+    .accessibilityLabel("More controls")
+    .accessibilityIdentifier("teleprompterMore")
+    .help("Text size and capture settings")
+    .minimumHitTarget()
   }
 }
