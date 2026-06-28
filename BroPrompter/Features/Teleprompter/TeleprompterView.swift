@@ -295,6 +295,10 @@ private struct TeleprompterReader: View {
     )
     .opacity(showControls ? 1 : 0)
     .allowsHitTesting(showControls)
+    // The reading surface disables focus effects; re-enable them on the transport
+    // so its buttons show the standard accent focus ring (BROP-23 / Full Keyboard
+    // Access), while the scrolling text stays ring-free.
+    .focusEffectDisabled(false)
   }
 
   private var speedBinding: Binding<Double> {

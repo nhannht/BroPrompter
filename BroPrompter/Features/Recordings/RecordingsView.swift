@@ -171,12 +171,14 @@ struct RecordingsView: View {
         Image(systemName: "play.fill")
       }
       .help("Play")
+      .minimumHitTarget()
       .accessibilityLabel("Play \(row.displayName)")
 
       ShareLink(item: row.take.fileURL) {
         Image(systemName: "square.and.arrow.up")
       }
       .help("Share")
+      .minimumHitTarget()
       .accessibilityLabel("Share \(row.displayName)")
     }
     .buttonStyle(.borderless)

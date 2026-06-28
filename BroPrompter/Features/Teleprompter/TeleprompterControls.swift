@@ -86,6 +86,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityIdentifier("teleprompterRestart")
       .help("Restart from the top")
+      .minimumHitTarget()
 
       Button(action: onTogglePlay) {
         Label(
@@ -95,6 +96,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityIdentifier("teleprompterPlayPause")
       .help(engine.isPlaying ? "Pause" : "Play")
+      .minimumHitTarget()
 
       Divider().frame(height: 20)
 
@@ -120,6 +122,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityIdentifier("teleprompterClose")
       .help("Close the teleprompter")
+      .minimumHitTarget()
     }
     .labelStyle(.iconOnly)
     .buttonStyle(.borderless)
@@ -133,10 +136,12 @@ struct TeleprompterControls: View {
       }
       .accessibilityLabel("Slower")
       .accessibilityIdentifier("teleprompterSlower")
+      .minimumHitTarget()
 
       Slider(value: $speed, in: speedRange)
         .frame(width: 120)
         .accessibilityLabel("Scroll speed")
+        .accessibilityValue("\(Int(speed)) points per second")
         .accessibilityIdentifier("teleprompterSpeed")
 
       Button(action: onFaster) {
@@ -144,6 +149,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityLabel("Faster")
       .accessibilityIdentifier("teleprompterFaster")
+      .minimumHitTarget()
     }
   }
 
@@ -154,6 +160,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityLabel("Smaller text")
       .accessibilityIdentifier("teleprompterFontSmaller")
+      .minimumHitTarget()
 
       Text("\(Int(script.fontSize))")
         .font(.callout.monospacedDigit())
@@ -166,6 +173,7 @@ struct TeleprompterControls: View {
       }
       .accessibilityLabel("Larger text")
       .accessibilityIdentifier("teleprompterFontLarger")
+      .minimumHitTarget()
     }
   }
 
@@ -177,6 +185,7 @@ struct TeleprompterControls: View {
       .accessibilityLabel(cameraEnabled ? "Turn camera off" : "Turn camera on")
       .accessibilityIdentifier("teleprompterCamera")
       .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
+      .minimumHitTarget()
 
       Button {
         showCameraSettings.toggle()
@@ -186,6 +195,7 @@ struct TeleprompterControls: View {
       .accessibilityLabel("Capture settings")
       .accessibilityIdentifier("teleprompterCameraSettings")
       .help("Choose camera, microphone, quality, countdown, and codec")
+      .minimumHitTarget()
       .popover(isPresented: $showCameraSettings, arrowEdge: .bottom) {
         cameraSettings
       }
@@ -201,6 +211,7 @@ struct TeleprompterControls: View {
     .accessibilityLabel(isCapturing ? "Stop recording" : "Start recording")
     .accessibilityIdentifier("teleprompterRecord")
     .help(isCapturing ? "Stop recording" : "Start recording")
+    .minimumHitTarget()
   }
 
   private var cameraSettings: some View {
