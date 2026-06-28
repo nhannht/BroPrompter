@@ -173,6 +173,10 @@ private struct TeleprompterReader: View {
         updateMaxOffset()
       }
       .onDisappear {
+        // Cancel the pending auto-hide so it cannot fire NSCursor.setHiddenUntilMouseMoves
+        // app-wide after the window is gone (BROP-41).
+        hideTask?.cancel()
+        hideTask = nil
         removeScrollMonitor()
         if recorder.isCapturing {
           finalizeOnClose()
