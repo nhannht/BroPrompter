@@ -119,6 +119,14 @@ extension TeleprompterEngine {
     min(max(0, offset), max(0, maxOffset))
   }
 
+  /// One "page" of manual scrub for the Left/Right keys (BROP-38): most of the
+  /// visible height, so a jump keeps a little overlap for context, floored at one
+  /// line so a tiny viewport still advances. `lineHeight` is the reader's current
+  /// line step.
+  static func pageStep(viewportHeight: Double, lineHeight: Double) -> Double {
+    max(lineHeight, viewportHeight * 0.8)
+  }
+
   /// The offset after advancing `dt` seconds at `speed`, clamped to range.
   static func nextOffset(
     current: Double,

@@ -106,6 +106,13 @@ struct TeleprompterEngineTests {
     #expect(engine.offset == 0)
   }
 
+  @Test("pageStep is most of the viewport, floored at one line")
+  func pageStepValue() {
+    #expect(TeleprompterEngine.pageStep(viewportHeight: 1_000, lineHeight: 60) == 800)
+    // A tiny viewport still advances at least one line.
+    #expect(TeleprompterEngine.pageStep(viewportHeight: 50, lineHeight: 60) == 60)
+  }
+
   @Test("restart returns to the top")
   func restartToTop() {
     let engine = TeleprompterEngine()
