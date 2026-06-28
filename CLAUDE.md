@@ -122,13 +122,12 @@ FormatSwift command plugin (SwiftFormat + SwiftLint, version-locked in
 Guidelines. The tooling-only `Package.swift` at the repo root hosts the plugin;
 it does not build the app (XcodeGen + `xcodebuild` own that). Tracked in BROP-26.
 
-Strict workflow, enforced at three gates:
+Strict workflow, enforced at two gates:
 
 - Before every commit: run `make format` (autofix), then `make lint` must report
   `0 violations, 0 serious`. Never commit Swift that fails `make lint`.
 - Pre-commit hook (`.githooks/pre-commit`) blocks any commit whose check fails.
   Activate it once per clone with `make hooks` (sets `core.hooksPath`).
-- CI (`.github/workflows/lint.yml`) runs the same check on push / pull request.
 
 Rules:
 
@@ -175,13 +174,11 @@ behavior by building and screenshotting the running app (BROP-28) instead.
 
 - `make test` runs the headless unit/integration tests (Swift Testing,
   `BroPrompterTests`): ReadingStats, the TeleprompterEngine scroll math, Script
-  CRUD, persistence-across-reopen, and the import rule. Fast, no focus steal,
-  CI-safe.
+  CRUD, persistence-across-reopen, and the import rule. Fast, no focus steal.
 - After any `project.yml` change, run `make generate` before `make test` (the
   `.xcodeproj` and its shared scheme are generated).
 - The suite never touches the real store: `ScriptStore` uses an in-memory store
   under a hosted test run, so `make test` cannot mutate `default.store`.
-- CI (`.github/workflows/test.yml`) runs the suite on every push / pull request.
 
 ## Docs are linted
 
