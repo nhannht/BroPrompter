@@ -57,15 +57,6 @@ private struct TeleprompterReader: View {
     GeometryReader { proxy in
       let focusY = proxy.size.height * Self.focusFraction
       ZStack(alignment: .top) {
-        cameraBackground
-          .ignoresSafeArea()
-
-        if isCameraActive {
-          contrastScrim
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-        }
-
         scrollingText(viewport: proxy.size, focusY: focusY)
           .offset(y: -engine.offset)
 
@@ -95,6 +86,20 @@ private struct TeleprompterReader: View {
           .onTapGesture { togglePlay() }
           .gesture(scrubGesture)
           .accessibilityHidden(true)
+      }
+      // Pin the reading surface to the window. scrollingText is padded taller than
+      // the viewport for its scroll range, which otherwise overflows the ZStack and
+      // pushes the bottom transport overlay off the window edge (BROP-43).
+      .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+      .clipped()
+      .background {
+        cameraBackground
+          .overlay {
+            if isCameraActive {
+              contrastScrim.allowsHitTesting(false)
+            }
+          }
+          .ignoresSafeArea()
       }
       .overlay {
         RecordingOverlay(
