@@ -26,6 +26,7 @@ struct CloudKitReadinessTests {
 
   @Test("no synced entity declares a uniqueness constraint")
   func noUniquenessConstraints() {
+    #expect(!entities.isEmpty, "the synced schema is empty; the check below would vacuously pass")
     for entity in entities {
       #expect(
         entity.uniquenessConstraints.isEmpty,
@@ -36,6 +37,7 @@ struct CloudKitReadinessTests {
 
   @Test("no synced entity declares a SwiftData relationship")
   func noRelationships() {
+    #expect(!entities.isEmpty, "the synced schema is empty; the check below would vacuously pass")
     for entity in entities {
       #expect(
         entity.relationships.isEmpty,
@@ -46,6 +48,7 @@ struct CloudKitReadinessTests {
 
   @Test("every synced attribute is optional or has a default value")
   func attributesAreOptionalOrDefaulted() {
+    #expect(!entities.isEmpty, "the synced schema is empty; the check below would vacuously pass")
     for entity in entities {
       for attribute in entity.attributes {
         #expect(
