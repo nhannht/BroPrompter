@@ -17,10 +17,20 @@ enum ScriptStore {
   /// The shared scripts container.
   static let container: ModelContainer = {
     let schema = Schema([Script.self, Take.self])
+    let config = configuration(for: schema)
     do {
-      return try ModelContainer(for: schema, configurations: [configuration(for: schema)])
+      return try ModelContainer(for: schema, configurations: [config])
     } catch {
-      fatalError("Failed to create the scripts ModelContainer: \(error)")
+      // The local store is corrupt or unreadable. Move it aside (preserved for
+      // manual recovery, not deleted) and retry once, so the app still launches
+      // instead of crash-looping on every start (BROP-41). A hosted test run is
+      // in-memory and never reaches this path.
+      moveStoreAside(at: config.url)
+      do {
+        return try ModelContainer(for: schema, configurations: [config])
+      } catch {
+        fatalError("Failed to create the scripts ModelContainer after recovery: \(error)")
+      }
     }
   }()
 
@@ -42,5 +52,23 @@ enum ScriptStore {
     // CloudKit flip later (BROP-27):
     // ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
     return ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+  }
+
+  /// Moves a corrupt store file and its SQLite sidecars out of the way, renaming
+  /// each with a timestamped suffix so the data is preserved for recovery rather
+  /// than deleted. The next container creation then starts from a fresh store.
+  private static func moveStoreAside(at storeURL: URL) {
+    let manager = FileManager.default
+    let stamp = "corrupt-\(Int(Date.now.timeIntervalSince1970))"
+    let files = [storeURL, appendingSuffix(storeURL, "-wal"), appendingSuffix(storeURL, "-shm")]
+    for url in files where manager.fileExists(atPath: url.path) {
+      try? manager.moveItem(at: url, to: appendingSuffix(url, ".\(stamp)"))
+    }
+  }
+
+  /// A URL whose last path component has `suffix` appended verbatim, for the SQLite
+  /// sidecar files (`store-wal` / `store-shm`) and the timestamped corrupt copy.
+  private static func appendingSuffix(_ url: URL, _ suffix: String) -> URL {
+    URL(fileURLWithPath: url.path + suffix)
   }
 }
