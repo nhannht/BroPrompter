@@ -71,21 +71,40 @@ struct ScriptSidebar: View {
 
 // MARK: - ScriptRow
 
-/// A single library row: the script title over its last-modified date.
+/// A single library row: the script title over its word count and estimated
+/// reading duration (prototype H3 4332:14362, "320 words / 2:08"), at the
+/// reading pace from Settings.
 private struct ScriptRow: View {
+
+  // MARK: Internal
+
   let script: Script
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
-      Text(script.title.isEmpty ? "Untitled Script" : script.title)
+      Text(displayTitle)
         .font(.body)
         .lineLimit(1)
-      Text(script.updatedAt, format: .dateTime.month().day().hour().minute())
+      Text(subtitle)
         .font(.caption)
         .foregroundStyle(.secondary)
     }
     .padding(.vertical, 2)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(script.title.isEmpty ? "Untitled Script" : script.title)
+    .accessibilityLabel("\(displayTitle), \(subtitle)")
+  }
+
+  // MARK: Private
+
+  @AppStorage(Preferences.Key.readingWordsPerMinute) private var wordsPerMinute = Preferences.Default.readingWordsPerMinute
+
+  private var displayTitle: String {
+    script.title.isEmpty ? "Untitled Script" : script.title
+  }
+
+  private var subtitle: String {
+    let words = ReadingStats.wordCount(of: script.body)
+    let seconds = ReadingStats.readSeconds(of: script.body, wordsPerMinute: wordsPerMinute)
+    return "\(words) words / \(TeleprompterEngine.clockString(Double(seconds)))"
   }
 }

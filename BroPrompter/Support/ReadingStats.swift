@@ -20,4 +20,14 @@ enum ReadingStats {
     guard words > 0, wordsPerMinute > 0 else { return 0 }
     return max(1, Int((Double(words) / Double(wordsPerMinute)).rounded(.up)))
   }
+
+  /// Estimated seconds to read the text aloud at `wordsPerMinute`, rounded to the
+  /// nearest second, with 0 for empty text. Used for the `m:ss` duration the
+  /// sidebar rows and the editor footer show (formatted via
+  /// `TeleprompterEngine.clockString`).
+  static func readSeconds(of text: String, wordsPerMinute: Int = wordsPerMinute) -> Int {
+    let words = wordCount(of: text)
+    guard words > 0, wordsPerMinute > 0 else { return 0 }
+    return Int((Double(words) / Double(wordsPerMinute) * 60).rounded())
+  }
 }

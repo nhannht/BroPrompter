@@ -42,4 +42,27 @@ struct ReadingStatsTests {
     // The default parameter preserves the original 150-wpm behavior.
     #expect(ReadingStats.readMinutes(of: text) == ReadingStats.readMinutes(of: text, wordsPerMinute: 150))
   }
+
+  @Test("estimates read seconds at 150 wpm, rounded to the nearest second", arguments: [
+    (words: 0, seconds: 0),
+    (words: 150, seconds: 60),
+    (words: 320, seconds: 128),
+    (words: 75, seconds: 30),
+  ])
+  func readSeconds(_ testCase: (words: Int, seconds: Int)) {
+    let text = String(repeating: "word ", count: testCase.words)
+    #expect(ReadingStats.readSeconds(of: text) == testCase.seconds)
+  }
+
+  @Test("read seconds scale with the configured wpm, default matches 150", arguments: [
+    (wpm: 300, seconds: 60),
+    (wpm: 150, seconds: 120),
+    (wpm: 100, seconds: 180),
+  ])
+  func readSecondsAtCustomPace(_ testCase: (wpm: Int, seconds: Int)) {
+    let text = String(repeating: "word ", count: 300)
+    #expect(ReadingStats.readSeconds(of: text, wordsPerMinute: testCase.wpm) == testCase.seconds)
+    // The default parameter preserves the original 150-wpm behavior.
+    #expect(ReadingStats.readSeconds(of: text) == ReadingStats.readSeconds(of: text, wordsPerMinute: 150))
+  }
 }
