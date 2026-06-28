@@ -333,6 +333,7 @@ private struct TeleprompterReader: View {
       selectedQuality: qualityBinding,
       selectedCountdown: $countdownLength,
       selectedCodec: codecBinding,
+      mirrorText: $mirrorText,
       isCapturing: recorder.isCapturing,
       recordDisabled: recorder.phase == .finalizing,
       cameraControlDisabled: recorder.isCapturing || recorder.phase == .countingIn,

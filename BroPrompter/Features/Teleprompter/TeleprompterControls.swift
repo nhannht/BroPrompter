@@ -25,6 +25,7 @@ struct TeleprompterControls: View {
   @Binding var selectedQuality: CaptureQuality
   @Binding var selectedCountdown: Int
   @Binding var selectedCodec: VideoCodec
+  @Binding var mirrorText: Bool
 
   let isCapturing: Bool
   let recordDisabled: Bool
@@ -147,7 +148,7 @@ struct TeleprompterControls: View {
     .disabled(recordDisabled)
     .accessibilityLabel(isCapturing ? "Stop recording" : "Start recording")
     .accessibilityIdentifier("teleprompterRecord")
-    .help(isCapturing ? "Stop recording" : "Start recording")
+    .help(isCapturing ? "Stop recording" : "Start recording (saves to Recordings)")
     .minimumHitTarget()
   }
 
@@ -158,6 +159,7 @@ struct TeleprompterControls: View {
     Menu {
       Button("Larger Text", systemImage: "textformat.size.larger", action: onLarger)
       Button("Smaller Text", systemImage: "textformat.size.smaller", action: onSmaller)
+      Toggle("Mirror Text (Beam Splitter)", isOn: $mirrorText)
       Section("Capture") {
         Picker("Camera", selection: $selectedCameraID) {
           Text("System Default").tag("")
