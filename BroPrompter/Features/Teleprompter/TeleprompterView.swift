@@ -192,6 +192,15 @@ private struct TeleprompterReader: View {
       .sheet(item: $permissionRequest) { request in
         permissionSheet(request)
       }
+      .alert(
+        "Recording Failed",
+        isPresented: recordingErrorPresented,
+        presenting: recordingError
+      ) { _ in
+        Button("OK", role: .cancel) { recordingError = nil }
+      } message: { message in
+        Text(message)
+      }
     }
   }
 
@@ -224,6 +233,7 @@ private struct TeleprompterReader: View {
   @State private var didActivateWindow = false
   @State private var permissionRequest: PermissionRequest?
   @State private var isFullScreen = false
+  @State private var recordingError: String?
 
   @FocusState private var isFocused: Bool
 
@@ -247,6 +257,13 @@ private struct TeleprompterReader: View {
   /// seconds (0 disables); video codec for video takes.
   @AppStorage(Preferences.Key.countdown) private var countdownLength = Preferences.Default.countdown
   @AppStorage(Preferences.Key.codec) private var videoCodecRaw = Preferences.Default.codecRaw
+
+  private var recordingErrorPresented: Binding<Bool> {
+    Binding(
+      get: { recordingError != nil },
+      set: { presented in if !presented { recordingError = nil } }
+    )
+  }
 
   /// One line's worth of scroll, used for the Up/Down scrub step.
   private var lineStep: Double {
@@ -554,7 +571,16 @@ private struct TeleprompterReader: View {
     case .video:
       session.startRecording(to: url, micID: selectedMicrophoneID, codec: avCodec)
     case .audio:
-      try? audioRecorder.start(to: url)
+      do {
+        try audioRecorder.start(to: url)
+      } catch {
+        // Reset the recorder out of its phantom "recording" phase and tell the
+        // user, rather than showing a ticking clock for a take that is being lost
+        // (BROP-41).
+        recorder.stop()
+        recorder.finish()
+        recordingError = "The audio recording could not be started. Check that the microphone is available and the disk has free space."
+      }
     }
   }
 

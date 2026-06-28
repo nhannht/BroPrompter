@@ -1,6 +1,17 @@
 import AVFoundation
 import Foundation
 
+// MARK: - AudioTakeRecorderError
+
+/// A failure starting an audio take.
+enum AudioTakeRecorderError: Error {
+  /// `AVAudioRecorder.record()` returned false (no input, disk full, the encoder
+  /// could not start), so no file is being written.
+  case couldNotStart
+}
+
+// MARK: - AudioTakeRecorder
+
 /// Records an audio-only take to an .m4a (AAC) file with metering, used when the
 /// camera is off (BROP-6). macOS has no audio session to configure; microphone
 /// access is gated separately through `PermissionManager` before recording.
@@ -10,7 +21,8 @@ final class AudioTakeRecorder {
   // MARK: Internal
 
   /// Starts recording to the given file URL. Throws if the recorder cannot be
-  /// created (for example an unwritable location).
+  /// created or if recording cannot begin (an unwritable location, an unavailable
+  /// input, or no free space), so a failed start is never mistaken for a take.
   func start(to url: URL) throws {
     let settings: [String: Any] = [
       AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -20,7 +32,9 @@ final class AudioTakeRecorder {
     ]
     let recorder = try AVAudioRecorder(url: url, settings: settings)
     recorder.isMeteringEnabled = true
-    recorder.record()
+    guard recorder.record() else {
+      throw AudioTakeRecorderError.couldNotStart
+    }
     self.recorder = recorder
   }
 
