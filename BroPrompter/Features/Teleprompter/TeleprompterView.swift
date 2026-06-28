@@ -116,6 +116,10 @@ private struct TeleprompterReader: View {
       }
       .overlay(alignment: .bottom) { controls }
       .overlay { firstRunTip }
+      // The reading surface is a dark teleprompter (prototype 4335:14397): force
+      // dark so the glass pill, menus, and chrome render dark with light content
+      // instead of a light pill over black (BROP-53).
+      .preferredColorScheme(.dark)
       .background(WindowReader { window in
         windowBox.window = window
         // A just-opened teleprompter should be the key, frontmost window so its
@@ -155,6 +159,7 @@ private struct TeleprompterReader: View {
         playing ? scheduleHide() : revealControls()
       }
       .onChange(of: cameraEnabled) { _, _ in syncCamera() }
+      .onChange(of: cameraMirrored) { _, mirrored in session.setMirrored(mirrored) }
       .onChange(of: cameraDeviceID) { _, _ in
         // A preference change from the Settings window must not reconfigure the
         // session during a take, or it severs the in-progress recording (BROP-41).
@@ -178,6 +183,9 @@ private struct TeleprompterReader: View {
         session.refreshDevices()
         recorder.countdownLength = countdownLength
         syncCamera()
+        // First run shows the controls tip; its dismissal triggers the camera
+        // prompt instead, so the two do not overlap.
+        if tipSeen { promptForCameraIfNeeded() }
       }
       .onChange(of: proxy.size.height) { _, newHeight in
         viewportHeight = newHeight
@@ -262,7 +270,9 @@ private struct TeleprompterReader: View {
   /// Camera background preferences, global like the line width (a capture
   /// environment choice, not a per-script attribute). The mic id is selected
   /// here but consumed only when recording starts (P4 / BROP-6).
-  @AppStorage(Preferences.Key.cameraEnabled) private var cameraEnabled = false
+  @AppStorage(Preferences.Key.cameraEnabled) private var cameraEnabled = Preferences.Default.cameraEnabled
+  @AppStorage(Preferences.Key.micEnabled) private var micEnabled = Preferences.Default.micEnabled
+  @AppStorage(Preferences.Key.cameraMirrored) private var cameraMirrored = Preferences.Default.cameraMirrored
   @AppStorage(Preferences.Key.cameraDeviceID) private var cameraDeviceID = ""
   @AppStorage(Preferences.Key.micDeviceID) private var micDeviceID = ""
   @AppStorage(Preferences.Key.cameraQuality) private var cameraQualityRaw = Preferences.Default.cameraQualityRaw
@@ -313,13 +323,13 @@ private struct TeleprompterReader: View {
     .allowsHitTesting(showControls)
   }
 
-  /// The hint under the transport (prototype 07 4335:14397), explaining that the
-  /// chrome auto-hides and Esc exits.
+  /// The hint under the transport (prototype 07 4335:14397). The transport stays
+  /// visible while reading, so it only needs to show how to exit full screen.
   private var controlHint: some View {
-    Text("Move the pointer to show controls    Esc to exit full screen")
+    Text("Esc to exit full screen")
       .font(.caption)
-      .foregroundStyle(isCameraActive ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.secondary))
-      .shadow(color: .black.opacity(isCameraActive ? 0.6 : 0), radius: 3)
+      .foregroundStyle(.white.opacity(0.85))
+      .shadow(color: .black.opacity(0.6), radius: 3)
       .padding(.bottom, 8)
       .allowsHitTesting(false)
       .accessibilityHidden(true)
@@ -346,13 +356,14 @@ private struct TeleprompterReader: View {
       VStack(alignment: .leading, spacing: 8) {
         Label("The red record button saves a take - video if the camera is on, audio if it is off.", systemImage: "record.circle")
         Label("Saved takes appear in the Recordings browser, opened from the Library window.", systemImage: "film")
-        Label("The camera button turns the live camera background on or off.", systemImage: "video")
-        Label("The more menu holds text size, mirror mode, and capture settings.", systemImage: "ellipsis.circle")
+        Label("The camera background is on by default; turn it off or pick a device in Settings.", systemImage: "video")
+        Label("The more menu holds text size, text and camera mirroring, and capture settings.", systemImage: "ellipsis.circle")
       }
       .font(.callout)
       Button("Got it") {
         tipSeen = true
         revealControls()
+        promptForCameraIfNeeded()
       }
       .buttonStyle(.borderedProminent)
       .keyboardShortcut(.defaultAction)
@@ -360,8 +371,7 @@ private struct TeleprompterReader: View {
     }
     .padding(20)
     .frame(maxWidth: 440, alignment: .leading)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(nsColor: .separatorColor)))
+    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     .shadow(radius: 24)
     .accessibilityIdentifier("teleprompterFirstRunTip")
   }
@@ -369,20 +379,12 @@ private struct TeleprompterReader: View {
   private var transportPill: some View {
     TeleprompterControls(
       engine: engine,
-      cameraEnabled: cameraEnabled,
-      cameras: session.availableCameras,
-      microphones: session.availableMicrophones,
-      qualities: qualityOptions,
-      selectedCameraID: $cameraDeviceID,
-      selectedMicID: $micDeviceID,
-      selectedQuality: qualityBinding,
-      selectedCountdown: $countdownLength,
-      selectedCodec: codecBinding,
-      mirrorText: $mirrorText,
       isCapturing: recorder.isCapturing,
-      recordDisabled: recorder.phase == .finalizing,
-      cameraControlDisabled: recorder.isCapturing || recorder.phase == .countingIn,
-      onRestart: { engine.restart()
+      recordDisabled: recorder.phase == .finalizing || (!cameraEnabled && !micEnabled),
+      mirrorText: $mirrorText,
+      cameraMirrored: $cameraMirrored,
+      onRestart: {
+        engine.restart()
         revealControls()
       },
       onTogglePlay: togglePlay,
@@ -390,7 +392,6 @@ private struct TeleprompterReader: View {
       onFaster: { changeSpeed(by: Self.speedStep) },
       onSmaller: { changeFont(by: -Self.fontStep) },
       onLarger: { changeFont(by: Self.fontStep) },
-      onToggleCamera: toggleCamera,
       onToggleRecord: toggleRecord,
       onClose: { dismiss() }
     )
@@ -426,28 +427,12 @@ private struct TeleprompterReader: View {
     cameraDeviceID.isEmpty ? nil : cameraDeviceID
   }
 
-  /// Bridges the raw stored quality to the picker's `CaptureQuality` selection.
-  private var qualityBinding: Binding<CaptureQuality> {
-    Binding(
-      get: { cameraQuality },
-      set: { cameraQualityRaw = $0.rawValue }
-    )
-  }
-
-  /// Qualities the picker offers: those the selected camera supports, or the
-  /// full list as a fallback before the camera has been queried (for example
-  /// when access has not yet been granted).
-  private var qualityOptions: [CaptureQuality] {
-    let supported = session.supportedQualities(forCameraID: selectedCameraID)
-    return supported.isEmpty ? CaptureQuality.allCases : supported
-  }
-
   @ViewBuilder
   private var cameraBackground: some View {
     if isCameraActive {
       CameraPreviewView(previewLayer: session.previewLayer)
     } else {
-      Color(nsColor: .textBackgroundColor)
+      Color.black
     }
   }
 
@@ -465,13 +450,11 @@ private struct TeleprompterReader: View {
     )
   }
 
-  /// Reading text is high-contrast white over the camera (paired with the scrim
-  /// and a shadow) and the semantic primary label color over the plain
-  /// background. Over arbitrary video `.primary` cannot guarantee contrast, so
-  /// the white treatment is the documented exception to semantic color
-  /// (GUIDELINES.md 4).
+  /// The reading surface is always dark (black when the camera is off, the camera
+  /// image otherwise), so reading text is always high-contrast white, paired with
+  /// the scrim and a shadow over video (GUIDELINES.md 4).
   private var readingTextStyle: AnyShapeStyle {
-    isCameraActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary)
+    AnyShapeStyle(.white)
   }
 
   /// The selected video codec, falling back to HEVC.
@@ -484,14 +467,6 @@ private struct TeleprompterReader: View {
     videoCodec == .h264 ? .h264 : .hevc
   }
 
-  /// Bridges the raw stored codec to the picker's `VideoCodec` selection.
-  private var codecBinding: Binding<VideoCodec> {
-    Binding(
-      get: { videoCodec },
-      set: { videoCodecRaw = $0.rawValue }
-    )
-  }
-
   /// The selected microphone id, or `nil` for the system default mic.
   private var selectedMicrophoneID: String? {
     micDeviceID.isEmpty ? nil : micDeviceID
@@ -501,15 +476,16 @@ private struct TeleprompterReader: View {
   /// remaining centered below it, matching the prototype (07 4335:14397). Fades
   /// with the transport. REC and the level meter sit in the corners (RecordingOverlay).
   private var topChrome: some View {
-    VStack(spacing: 6) {
+    ZStack(alignment: .top) {
       ProgressView(value: engine.progress)
         .progressViewStyle(.linear)
         .tint(.accentColor)
         .accessibilityHidden(true)
       Text("\(TeleprompterEngine.clockString(engine.remaining)) remaining")
         .font(.caption.monospacedDigit())
-        .foregroundStyle(isCameraActive ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
-        .shadow(color: .black.opacity(isCameraActive ? 0.6 : 0), radius: 4)
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.6), radius: 4)
+        .padding(.top, 32)
         .accessibilityLabel("Time remaining")
         .accessibilityValue(TeleprompterEngine.clockString(engine.remaining))
         .accessibilityIdentifier("teleprompterRemaining")
@@ -543,10 +519,19 @@ private struct TeleprompterReader: View {
   /// Starts or stops the camera to match the stored preference and authorization.
   private func syncCamera() {
     if isCameraAuthorizedAndEnabled {
-      session.start(cameraID: selectedCameraID, quality: cameraQuality)
+      session.start(cameraID: selectedCameraID, quality: cameraQuality, mirrored: cameraMirrored)
     } else {
       session.stop()
     }
+  }
+
+  /// The camera is on by default (BROP-54), but the transport no longer has a
+  /// camera button, so ask for access in context when the teleprompter opens with
+  /// the camera enabled and the user has not yet decided (GUIDELINES.md 1.1). A
+  /// prior denial stays silent; the camera shows black until granted in Settings.
+  private func promptForCameraIfNeeded() {
+    guard cameraEnabled, permissions.status(for: .camera) == .notDetermined else { return }
+    permissionRequest = .cameraExplain
   }
 
   /// Turns the camera background on or off from the transport. Enabling routes
@@ -577,15 +562,17 @@ private struct TeleprompterReader: View {
     }
   }
 
-  /// Starts a take (count-in then recording) or stops one in progress. Recording
-  /// always needs the microphone, so enabling routes through the in-context mic
-  /// permission flow first.
+  /// Starts a take (count-in then recording) or stops one in progress. A take with
+  /// the microphone on routes through the in-context mic permission flow first; a
+  /// silent video take (mic off in Settings) starts immediately.
   private func toggleRecord() {
     revealControls()
     if recorder.isCapturing || recorder.phase == .countingIn {
       stopRecording()
-    } else {
+    } else if micEnabled {
       requestMicrophoneAndRecord()
+    } else {
+      recorder.start()
     }
   }
 
@@ -611,6 +598,9 @@ private struct TeleprompterReader: View {
         onResult: { granted in
           permissionRequest = nil
           cameraEnabled = granted
+          // When the camera was already enabled (the default), setting the same
+          // value fires no onChange, so start the session explicitly (BROP-54).
+          syncCamera()
         },
         onCancel: { permissionRequest = nil }
       )
@@ -654,7 +644,7 @@ private struct TeleprompterReader: View {
     let url = RecordingsDirectory.fileURL(forName: name)
     switch mode {
     case .video:
-      session.startRecording(to: url, micID: selectedMicrophoneID, codec: avCodec)
+      session.startRecording(to: url, micID: selectedMicrophoneID, codec: avCodec, includeAudio: micEnabled)
     case .audio:
       do {
         try audioRecorder.start(to: url)
@@ -839,15 +829,14 @@ private struct TeleprompterReader: View {
     scheduleHide()
   }
 
-  /// Hides the transport after a short idle, but only while playing. When
-  /// paused the controls stay put so the reader can always reach them.
+  /// Hides the cursor after a short idle while playing so it does not sit over
+  /// the script. The transport itself stays visible (BROP-53).
   private func scheduleHide() {
     hideTask?.cancel()
     guard engine.isPlaying else { return }
     hideTask = Task {
       try? await Task.sleep(for: .seconds(3))
       guard !Task.isCancelled, engine.isPlaying else { return }
-      setControls(visible: false)
       NSCursor.setHiddenUntilMouseMoves(true)
     }
   }

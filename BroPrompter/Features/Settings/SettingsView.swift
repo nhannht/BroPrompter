@@ -145,6 +145,10 @@ private struct RecordingSettingsTab: View {
 
   var body: some View {
     Form {
+      Toggle("Record video (camera)", isOn: $cameraEnabled)
+      Toggle("Record audio (microphone)", isOn: $micEnabled)
+      Toggle("Mirror camera (self-view)", isOn: $cameraMirrored)
+
       Picker("Default camera", selection: $cameraDeviceID) {
         Text("System Default").tag("")
         ForEach(session.availableCameras) { Text($0.name).tag($0.id) }
@@ -159,7 +163,7 @@ private struct RecordingSettingsTab: View {
         ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0.rawValue) }
       }
 
-      Text("Used the next time you record. The teleprompter's capture menu can override these per session.")
+      Text("The teleprompter records what is on: camera for video, microphone for sound. With both off, recording is disabled.")
         .font(.callout)
         .foregroundStyle(.secondary)
     }
@@ -172,6 +176,9 @@ private struct RecordingSettingsTab: View {
 
   @State private var session = CaptureSessionManager()
 
+  @AppStorage(Preferences.Key.cameraEnabled) private var cameraEnabled = Preferences.Default.cameraEnabled
+  @AppStorage(Preferences.Key.micEnabled) private var micEnabled = Preferences.Default.micEnabled
+  @AppStorage(Preferences.Key.cameraMirrored) private var cameraMirrored = Preferences.Default.cameraMirrored
   @AppStorage(Preferences.Key.cameraDeviceID) private var cameraDeviceID = ""
   @AppStorage(Preferences.Key.micDeviceID) private var micDeviceID = ""
   @AppStorage(Preferences.Key.codec) private var codecRaw = Preferences.Default.codecRaw

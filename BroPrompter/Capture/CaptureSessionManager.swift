@@ -50,6 +50,11 @@ final class CaptureSessionManager {
   /// Whether the session is running and feeding the preview.
   private(set) var isRunning = false
 
+  /// Whether the live preview is horizontally mirrored for a natural self-view
+  /// (BROP-54). Applied to the preview connection only; the recorded file keeps
+  /// the camera's true orientation, the macOS Photo Booth / QuickTime convention.
+  private(set) var isMirrored = true
+
   /// Discovers connected cameras and microphones for the device pickers. Cheap
   /// and non-blocking, so it runs on the main actor.
   func refreshDevices() {
@@ -67,9 +72,10 @@ final class CaptureSessionManager {
   /// Starts a live preview from the chosen camera at the chosen quality. Falls
   /// back to the system default camera when `cameraID` is unknown, and to the
   /// camera's default format when the quality is unavailable. Does nothing when
-  /// no camera is present (for example in CI).
-  func start(cameraID: String?, quality: CaptureQuality) {
+  /// no camera is present (for example in CI). `mirrored` sets the self-view flip.
+  func start(cameraID: String?, quality: CaptureQuality, mirrored: Bool) {
     guard let device = Self.camera(withID: cameraID) ?? Self.defaultCamera else { return }
+    isMirrored = mirrored
     configure(device: device, quality: quality)
     run()
     attachPreview()
@@ -93,7 +99,14 @@ final class CaptureSessionManager {
 
   /// Switches the live camera, applying the chosen quality where possible.
   func selectCamera(id: String?, quality: CaptureQuality) {
-    start(cameraID: id, quality: quality)
+    start(cameraID: id, quality: quality, mirrored: isMirrored)
+  }
+
+  /// Flips the self-view mirroring of the live preview, applied immediately so the
+  /// reader can toggle it while watching themselves (BROP-54).
+  func setMirrored(_ mirrored: Bool) {
+    isMirrored = mirrored
+    applyMirroring()
   }
 
   /// Reapplies a quality to the current camera without tearing down the session.
@@ -102,10 +115,11 @@ final class CaptureSessionManager {
     configure(device: device, quality: quality)
   }
 
-  /// Begins recording the clean camera feed (no text burn-in) to `url`, adding
-  /// the chosen microphone as an audio input so the take has sound. Adding the
-  /// audio input lights the system microphone indicator (GUIDELINES.md 2.1).
-  func startRecording(to url: URL, micID: String?, codec: AVVideoCodecType) {
+  /// Begins recording the clean camera feed (no text burn-in) to `url`. When
+  /// `includeAudio` is true the chosen microphone is added as an audio input so
+  /// the take has sound and the system microphone indicator lights
+  /// (GUIDELINES.md 2.1); when false the take is silent video.
+  func startRecording(to url: URL, micID: String?, codec: AVVideoCodecType, includeAudio: Bool) {
     nonisolated(unsafe) let session = session
     nonisolated(unsafe) let movieOutput = movieOutput
     nonisolated(unsafe) let microphone = Self.microphone(withID: micID)
@@ -115,6 +129,7 @@ final class CaptureSessionManager {
 
     sessionQueue.async {
       if
+        includeAudio,
         let microphone,
         let audioInput = try? AVCaptureDeviceInput(device: microphone),
         session.canAddInput(audioInput)
@@ -277,17 +292,23 @@ final class CaptureSessionManager {
     }
   }
 
-  /// Points the owned preview layer at the session and mirrors it so the reader
-  /// sees a natural self-view. Runs on the main actor when the camera starts; the
-  /// mirroring lives here, with the layer, rather than in the hosting view (BROP-42).
+  /// Points the owned preview layer at the session, then applies the self-view
+  /// mirroring. Runs on the main actor when the camera starts; the mirroring lives
+  /// here, with the layer, rather than in the hosting view (BROP-42).
   private func attachPreview() {
     if previewLayer.session !== session {
       previewLayer.session = session
     }
-    if let connection = previewLayer.connection, connection.isVideoMirroringSupported {
-      connection.automaticallyAdjustsVideoMirroring = false
-      connection.isVideoMirrored = true
-    }
+    applyMirroring()
+  }
+
+  /// Applies the current `isMirrored` state to the preview connection. Separate
+  /// from `attachPreview` so a live toggle can reapply it without restarting the
+  /// session (BROP-54).
+  private func applyMirroring() {
+    guard let connection = previewLayer.connection, connection.isVideoMirroringSupported else { return }
+    connection.automaticallyAdjustsVideoMirroring = false
+    connection.isVideoMirrored = isMirrored
   }
 
   /// Starts the session if it is not already running, then publishes the state.

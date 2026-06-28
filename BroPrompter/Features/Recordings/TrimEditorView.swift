@@ -108,7 +108,7 @@ struct TrimEditorView: View {
       if isExporting {
         ProgressView("Trimming...")
           .padding(16)
-          .background(.ultraThinMaterial, in: .rect(cornerRadius: 10))
+          .glassEffect(.regular, in: .rect(cornerRadius: 10))
       }
     }
     .aspectRatio(16.0 / 9.0, contentMode: .fit)

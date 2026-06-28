@@ -33,8 +33,8 @@ struct RecordingOverlay: View {
         }
         Spacer()
       }
-      .padding(.horizontal, 16)
-      .padding(.top, 16)
+      .padding(.horizontal, 40)
+      .padding(.top, 32)
     }
   }
 
@@ -77,7 +77,7 @@ struct RecordingOverlay: View {
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 6)
-    .background(.bar, in: .capsule)
+    .glassEffect(.regular, in: .capsule)
     .allowsHitTesting(false)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(recorder.phase == .paused ? "Recording paused" : "Recording")
@@ -94,7 +94,7 @@ struct RecordingOverlay: View {
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 6)
-    .background(.bar, in: .capsule)
+    .glassEffect(.regular, in: .capsule)
     .allowsHitTesting(false)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Input level")
@@ -134,7 +134,7 @@ struct RecordingOverlay: View {
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 10)
-    .background(.bar, in: .capsule)
+    .glassEffect(.regular, in: .capsule)
     .accessibilityIdentifier("teleprompterTakeSaved")
   }
 }

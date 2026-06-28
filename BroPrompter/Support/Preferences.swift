@@ -18,6 +18,8 @@ enum Preferences {
     static let mirrorText = "teleprompter.mirrorText"
     static let lineWidthFraction = "teleprompter.lineWidthFraction"
     static let cameraEnabled = "camera.enabled"
+    static let micEnabled = "mic.enabled"
+    static let cameraMirrored = "camera.mirrored"
     static let cameraDeviceID = "camera.deviceID"
     static let micDeviceID = "camera.micID"
     static let cameraQuality = "camera.quality"
@@ -34,6 +36,9 @@ enum Preferences {
     static let scrollSpeed = 60.0
     static let mirrorText = false
     static let lineWidthFraction = 0.8
+    static let cameraEnabled = true
+    static let micEnabled = true
+    static let cameraMirrored = true
     static let countdown = 3
     static let cameraQualityRaw = CaptureQuality.preferred.rawValue
     static let codecRaw = VideoCodec.hevc.rawValue

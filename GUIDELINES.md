@@ -136,8 +136,9 @@ A teleprompter is used full screen. Follow macOS full-screen conventions.
 
 - Enable full screen because it fits. Reading at distance is a genuinely
   immersive task, so full screen is appropriate here.
-- Hide chrome, reveal on intent. Like QuickTime during playback, hide toolbars
-  and controls during scrolling, and reveal them on pointer move or key press.
+- Hide the cursor, keep the controls. During scrolling, hide the pointer and
+  reveal it on movement, but keep the transport visible so the play, pause, and
+  record state stay legible.
 - Keep essential controls reachable. Play/pause, speed, and exit must always be
   one gesture or key away. Never trap the user.
 - Let people enter Mission Control. Respect the system shortcuts and gestures;
