@@ -23,6 +23,7 @@ enum Preferences {
     static let cameraQuality = "camera.quality"
     static let countdown = "recording.countdown"
     static let codec = "recording.codec"
+    static let teleprompterTipSeen = "teleprompter.tipSeen"
   }
 
   /// Default values, used both as the `@AppStorage` fallback and as the resolved

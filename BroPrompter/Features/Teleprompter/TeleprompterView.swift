@@ -115,6 +115,7 @@ private struct TeleprompterReader: View {
           .allowsHitTesting(false)
       }
       .overlay(alignment: .bottom) { controls }
+      .overlay { firstRunTip }
       .background(WindowReader { window in
         windowBox.window = window
         // A just-opened teleprompter should be the key, frontmost window so its
@@ -271,6 +272,9 @@ private struct TeleprompterReader: View {
   @AppStorage(Preferences.Key.countdown) private var countdownLength = Preferences.Default.countdown
   @AppStorage(Preferences.Key.codec) private var videoCodecRaw = Preferences.Default.codecRaw
 
+  /// Whether the one-time controls tip has been dismissed (BROP-48).
+  @AppStorage(Preferences.Key.teleprompterTipSeen) private var tipSeen = false
+
   private var recordingErrorPresented: Binding<Bool> {
     Binding(
       get: { recordingError != nil },
@@ -319,6 +323,47 @@ private struct TeleprompterReader: View {
       .padding(.bottom, 8)
       .allowsHitTesting(false)
       .accessibilityHidden(true)
+  }
+
+  /// A one-time tip shown the first time the teleprompter opens, so the controls
+  /// are not a guessing game (BROP-48). Dismissing it sets the stored flag and
+  /// reveals the live transport.
+  @ViewBuilder
+  private var firstRunTip: some View {
+    if !tipSeen {
+      ZStack {
+        Color.black.opacity(0.25)
+          .ignoresSafeArea()
+        tipCard
+      }
+    }
+  }
+
+  private var tipCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Teleprompter controls")
+        .font(.headline)
+      VStack(alignment: .leading, spacing: 8) {
+        Label("The red record button saves a take - video if the camera is on, audio if it is off.", systemImage: "record.circle")
+        Label("Saved takes appear in the Recordings browser, opened from the Library window.", systemImage: "film")
+        Label("The camera button turns the live camera background on or off.", systemImage: "video")
+        Label("The more menu holds text size, mirror mode, and capture settings.", systemImage: "ellipsis.circle")
+      }
+      .font(.callout)
+      Button("Got it") {
+        tipSeen = true
+        revealControls()
+      }
+      .buttonStyle(.borderedProminent)
+      .keyboardShortcut(.defaultAction)
+      .accessibilityIdentifier("teleprompterTipDismiss")
+    }
+    .padding(20)
+    .frame(maxWidth: 440, alignment: .leading)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(nsColor: .separatorColor)))
+    .shadow(radius: 24)
+    .accessibilityIdentifier("teleprompterFirstRunTip")
   }
 
   private var transportPill: some View {
