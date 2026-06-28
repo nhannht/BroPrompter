@@ -135,6 +135,14 @@ struct TeleprompterEngineTests {
     #expect(engine.speed == TeleprompterEngine.minimumSpeed)
   }
 
+  @Test("nudgeSpeed never rises above the maximum")
+  func speedCeiling() {
+    let engine = TeleprompterEngine(speed: 290)
+
+    engine.nudgeSpeed(by: 100)
+    #expect(engine.speed == TeleprompterEngine.maximumSpeed)
+  }
+
   @Test("lowering maxOffset clamps the current offset")
   func maxOffsetClampsCurrent() {
     let engine = TeleprompterEngine()

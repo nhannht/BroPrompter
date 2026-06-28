@@ -82,9 +82,10 @@ final class TeleprompterEngine {
     offset = Self.clamp(offset + delta, maxOffset: maxOffset)
   }
 
-  /// Nudges the auto-scroll speed by a delta, floored so it never reverses.
+  /// Nudges the auto-scroll speed by a delta, clamped to the supported range so a
+  /// held keyboard or menu repeat cannot drive it past the slider's bounds (BROP-41).
   func nudgeSpeed(by delta: Double) {
-    speed = max(Self.minimumSpeed, speed + delta)
+    speed = min(Self.maximumSpeed, max(Self.minimumSpeed, speed + delta))
   }
 
   /// Advances the offset by the time since the previous tick. Call once per
@@ -113,6 +114,10 @@ final class TeleprompterEngine {
 extension TeleprompterEngine {
   /// Slowest allowed auto-scroll speed, in points per second.
   static let minimumSpeed = 10.0
+
+  /// Fastest allowed auto-scroll speed, in points per second. Shared with the
+  /// transport slider's range so the control and the engine agree (BROP-41).
+  static let maximumSpeed = 300.0
 
   /// Clamps an offset into the valid `0...maxOffset` range.
   static func clamp(_ offset: Double, maxOffset: Double) -> Double {

@@ -59,7 +59,7 @@ struct TeleprompterControls: View {
 
   // MARK: Private
 
-  private let speedRange = TeleprompterEngine.minimumSpeed...300
+  private let speedRange = TeleprompterEngine.minimumSpeed...TeleprompterEngine.maximumSpeed
 
   @State private var showCameraSettings = false
 
