@@ -199,7 +199,7 @@ private struct ShortcutsSettingsTab: View {
       }
     }
     .formStyle(.grouped)
-    .frame(width: 520, height: 460)
+    .frame(width: 520, height: 520)
   }
 
   // MARK: Private
@@ -219,10 +219,12 @@ private struct ShortcutsSettingsTab: View {
     ("Play / Pause", "Space"),
     ("Slower / Faster", "- / +"),
     ("Smaller / Larger text", "⌘- / ⌘+"),
-    ("Scrub", "↑ / ↓"),
+    ("Scrub line", "↑ / ↓"),
+    ("Page back / forward", "← / →"),
+    ("Enter / exit full screen", "⌘↩"),
     ("Toggle camera", "C"),
     ("Record / Stop", "R"),
-    ("Exit", "Esc"),
+    ("Exit (leaves full screen first)", "Esc"),
   ]
 
   private func row(_ shortcut: (action: String, keys: String)) -> some View {
