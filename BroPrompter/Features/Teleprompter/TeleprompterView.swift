@@ -384,7 +384,7 @@ private struct TeleprompterReader: View {
   @ViewBuilder
   private var cameraBackground: some View {
     if isCameraActive {
-      CameraPreviewView(session: session.session)
+      CameraPreviewView(previewLayer: session.previewLayer)
     } else {
       Color(nsColor: .textBackgroundColor)
     }

@@ -31,6 +31,16 @@ final class CaptureSessionManager {
   /// The capture session the preview layer renders.
   let session = AVCaptureSession()
 
+  /// The preview layer the camera renders into. Owned here, not by the SwiftUI
+  /// view, so toggling the camera off or closing the window never deallocates the
+  /// layer on the main thread mid session-config, which deadlocks CoreAnimation
+  /// against the session lock (BROP-42, Apple's AVCam pattern).
+  let previewLayer: AVCaptureVideoPreviewLayer = {
+    let layer = AVCaptureVideoPreviewLayer()
+    layer.videoGravity = .resizeAspectFill
+    return layer
+  }()
+
   /// Cameras available to pick from, refreshed by `refreshDevices`.
   private(set) var availableCameras = [CaptureDevice]()
 
@@ -62,10 +72,15 @@ final class CaptureSessionManager {
     guard let device = Self.camera(withID: cameraID) ?? Self.defaultCamera else { return }
     configure(device: device, quality: quality)
     run()
+    attachPreview()
   }
 
   /// Stops the preview and releases the camera, so the green privacy dot clears.
   func stop() {
+    // Detach the preview layer on the main thread before tearing the session
+    // down, so the layer never mutates the session during its own dealloc and
+    // deadlocks against the session lock the queue holds (BROP-42).
+    previewLayer.session = nil
     nonisolated(unsafe) let session = session
     sessionQueue.async { [weak self] in
       if session.isRunning { session.stopRunning() }
@@ -259,6 +274,19 @@ final class CaptureSessionManager {
           session.removeInput(deviceInput)
         }
       }
+    }
+  }
+
+  /// Points the owned preview layer at the session and mirrors it so the reader
+  /// sees a natural self-view. Runs on the main actor when the camera starts; the
+  /// mirroring lives here, with the layer, rather than in the hosting view (BROP-42).
+  private func attachPreview() {
+    if previewLayer.session !== session {
+      previewLayer.session = session
+    }
+    if let connection = previewLayer.connection, connection.isVideoMirroringSupported {
+      connection.automaticallyAdjustsVideoMirroring = false
+      connection.isVideoMirrored = true
     }
   }
 
