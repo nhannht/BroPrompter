@@ -109,7 +109,7 @@ never hardcode the domain in this repo.
   the control (true vibrant sidebar, custom cursors).
 - Project generated with XcodeGen (`project.yml`). Build via CLI / Xcode, not by
   hand-editing the `.xcodeproj`.
-- Min macOS 15; macOS 26 (Tahoe) for full Liquid Glass.
+- Min macOS 26 (Tahoe); required for Liquid Glass.
 - Bundle identifier: `com.nhannht.BroPrompter` (branding namespace `nhannht`).
   iCloud container: `iCloud.com.nhannht.BroPrompter`. Use these for the app
   target, signing, and the CloudKit entitlement in P0 (BROP-2).

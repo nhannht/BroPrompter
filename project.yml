@@ -3,7 +3,7 @@ name: BroPrompter
 options:
   bundleIdPrefix: com.nhannht
   deploymentTarget:
-    macOS: "15.0"
+    macOS: "26.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
 
@@ -21,7 +21,7 @@ targets:
   BroPrompter:
     type: application
     platform: macOS
-    deploymentTarget: "15.0"
+    deploymentTarget: "26.0"
     sources:
       - path: BroPrompter
     settings:
@@ -38,7 +38,7 @@ targets:
   BroPrompterTests:
     type: bundle.unit-test
     platform: macOS
-    deploymentTarget: "15.0"
+    deploymentTarget: "26.0"
     sources:
       - path: BroPrompterTests
     dependencies:

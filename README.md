@@ -31,7 +31,7 @@ Once the App Store / notarized build ships, this step goes away.
 
 ## Build from source
 
-Requirements: macOS 15+, Xcode 16+, and
+Requirements: macOS 26+, Xcode 26+, and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```sh

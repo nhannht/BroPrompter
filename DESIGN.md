@@ -7,7 +7,7 @@ by Apple Design Resources, subscribed to the project's Figma file.
   design is on its `BroPrompter - *` pages (00 Cover / 01 Atoms / 02 Components / 03 Screens)
 - Source library: **macOS 26**, Apple Design Resources, community, updated 2026-02-25
 - Library key: `lk-52492a50a550...a714f2d76ade248` (Figma library, 71 components)
-- Target platform: macOS 15 minimum, macOS 26 (Tahoe) for full Liquid Glass
+- Target platform: macOS 26 (Tahoe) minimum (required for Liquid Glass)
 - Implementation: SwiftUI first, AppKit (`NSViewRepresentable`) only where needed
 
 > Provenance note: the design lives in a local duplicate of the macOS 26 kit
