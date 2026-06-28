@@ -145,11 +145,13 @@ private struct TeleprompterReader: View {
       }
       .onChange(of: cameraEnabled) { _, _ in syncCamera() }
       .onChange(of: cameraDeviceID) { _, _ in
-        guard isCameraAuthorizedAndEnabled else { return }
+        // A preference change from the Settings window must not reconfigure the
+        // session during a take, or it severs the in-progress recording (BROP-41).
+        guard !isCaptureLocked, isCameraAuthorizedAndEnabled else { return }
         session.selectCamera(id: selectedCameraID, quality: cameraQuality)
       }
       .onChange(of: cameraQualityRaw) { _, _ in
-        guard isCameraAuthorizedAndEnabled else { return }
+        guard !isCaptureLocked, isCameraAuthorizedAndEnabled else { return }
         session.updateQuality(cameraQuality, cameraID: selectedCameraID)
       }
       .onChange(of: recorder.phase) { old, new in
@@ -319,6 +321,12 @@ private struct TeleprompterReader: View {
   /// Whether the camera is both enabled and authorized to run.
   private var isCameraAuthorizedAndEnabled: Bool {
     cameraEnabled && permissions.status(for: .camera) == .authorized
+  }
+
+  /// True while a take is counting in or recording, when the capture session must
+  /// not be reconfigured: tearing it down mid-take truncates the recording (BROP-41).
+  private var isCaptureLocked: Bool {
+    recorder.isCapturing || recorder.phase == .countingIn
   }
 
   /// The selected camera quality, falling back to the default preset.
