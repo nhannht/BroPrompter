@@ -14,6 +14,7 @@ struct TakeReviewView: View {
   let take: Take
   let onBack: () -> Void
   let onDone: () -> Void
+  let onTrim: () -> Void
   let onDeleted: () -> Void
 
   var body: some View {
@@ -94,6 +95,8 @@ struct TakeReviewView: View {
         Button("Re-record", action: reRecord)
           .accessibilityIdentifier("takeReviewReRecord")
       }
+      Button("Trim", action: onTrim)
+        .accessibilityIdentifier("takeReviewTrim")
       ShareLink(item: take.fileURL) {
         Text("Share")
       }

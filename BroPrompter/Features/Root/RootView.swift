@@ -10,6 +10,7 @@ enum AppRoute {
   case library
   case recordings
   case takeReview(Take)
+  case trim(Take)
 }
 
 // MARK: - RootView
@@ -39,6 +40,13 @@ struct RootView: View {
 
       case .takeReview(let take):
         takeReviewScreen(take)
+
+      case .trim(let take):
+        TrimEditorView(
+          take: take,
+          onCancel: { route = .takeReview(take) },
+          onSaved: { route = .takeReview($0) }
+        )
       }
     }
     .focusedSceneValue(\.rootRoute, $route)
@@ -115,6 +123,7 @@ struct RootView: View {
       take: take,
       onBack: { route = .recordings },
       onDone: { route = .library },
+      onTrim: { route = .trim(take) },
       onDeleted: { route = .recordings }
     )
   }
