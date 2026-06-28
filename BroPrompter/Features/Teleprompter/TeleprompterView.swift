@@ -109,6 +109,11 @@ private struct TeleprompterReader: View {
           onDismissSaved: { savedTakeURL = nil }
         )
       }
+      .overlay(alignment: .top) {
+        topChrome
+          .opacity(showControls ? 1 : 0)
+          .allowsHitTesting(false)
+      }
       .overlay(alignment: .bottom) { controls }
       .background(WindowReader { window in
         windowBox.window = window
@@ -214,6 +219,9 @@ private struct TeleprompterReader: View {
   /// Vertical position of the focus line as a fraction of the viewport height,
   /// near the top third where the reader's eyeline sits (GUIDELINES.md 2.3).
   private static let focusFraction = 0.4
+  /// The focus line spans this fraction of the width from the left, ending in a
+  /// dot, matching the prototype indicator (07 4335:14397).
+  private static let focusLineFraction = 0.3
   private static let speedStep = 10.0
   private static let fontStep = 2.0
   private static let fontRange = 24.0...120.0
@@ -422,6 +430,25 @@ private struct TeleprompterReader: View {
   /// The selected microphone id, or `nil` for the system default mic.
   private var selectedMicrophoneID: String? {
     micDeviceID.isEmpty ? nil : micDeviceID
+  }
+
+  /// The top chrome: a thin progress bar pinned to the top edge and the time
+  /// remaining centered below it, matching the prototype (07 4335:14397). Fades
+  /// with the transport. REC and the level meter sit in the corners (RecordingOverlay).
+  private var topChrome: some View {
+    VStack(spacing: 6) {
+      ProgressView(value: engine.progress)
+        .progressViewStyle(.linear)
+        .tint(.accentColor)
+        .accessibilityHidden(true)
+      Text("\(TeleprompterEngine.clockString(engine.remaining)) remaining")
+        .font(.caption.monospacedDigit())
+        .foregroundStyle(isCameraActive ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+        .shadow(color: .black.opacity(isCameraActive ? 0.6 : 0), radius: 4)
+        .accessibilityLabel("Time remaining")
+        .accessibilityValue(TeleprompterEngine.clockString(engine.remaining))
+        .accessibilityIdentifier("teleprompterRemaining")
+    }
   }
 
   /// Inserts a finished take into the shared store. The capture quality and codec
@@ -663,12 +690,19 @@ private struct TeleprompterReader: View {
   }
 
   private func focusLine(width: CGFloat, y: CGFloat) -> some View {
-    Rectangle()
-      .fill(Color.accentColor.opacity(0.7))
-      .frame(width: width, height: 2)
-      .position(x: width / 2, y: y)
-      .allowsHitTesting(false)
-      .accessibilityHidden(true)
+    HStack(spacing: 0) {
+      Rectangle()
+        .fill(Color.accentColor)
+        .frame(width: width * Self.focusLineFraction, height: 2)
+      Circle()
+        .fill(Color.accentColor)
+        .frame(width: 10, height: 10)
+      Spacer(minLength: 0)
+    }
+    .frame(width: width)
+    .position(x: width / 2, y: y)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
   }
 
   /// The scrollable range is the content height beyond the viewport. With the
