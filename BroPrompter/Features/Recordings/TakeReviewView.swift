@@ -103,9 +103,14 @@ struct TakeReviewView: View {
       .accessibilityIdentifier("takeReviewShare")
       Button("Export...", action: export)
         .accessibilityIdentifier("takeReviewExport")
-      Button("Delete", role: .destructive) { showDeleteConfirm = true }
-        .tint(.red)
-        .accessibilityIdentifier("takeReviewDelete")
+      // Destructive intent is shape + icon, not color alone (BROP-23): a trash
+      // icon and the prominent filled style, keeping the destructive role.
+      Button(role: .destructive) { showDeleteConfirm = true } label: {
+        Label("Delete", systemImage: "trash")
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(.red)
+      .accessibilityIdentifier("takeReviewDelete")
     }
     .controlSize(.large)
   }
