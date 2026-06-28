@@ -301,6 +301,27 @@ private struct TeleprompterReader: View {
   }
 
   private var controls: some View {
+    VStack(spacing: 4) {
+      transportPill
+      controlHint
+    }
+    .opacity(showControls ? 1 : 0)
+    .allowsHitTesting(showControls)
+  }
+
+  /// The hint under the transport (prototype 07 4335:14397), explaining that the
+  /// chrome auto-hides and Esc exits.
+  private var controlHint: some View {
+    Text("Move the pointer to show controls    Esc to exit full screen")
+      .font(.caption)
+      .foregroundStyle(isCameraActive ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.secondary))
+      .shadow(color: .black.opacity(isCameraActive ? 0.6 : 0), radius: 3)
+      .padding(.bottom, 8)
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+  }
+
+  private var transportPill: some View {
     TeleprompterControls(
       engine: engine,
       cameraEnabled: cameraEnabled,
@@ -327,8 +348,6 @@ private struct TeleprompterReader: View {
       onToggleRecord: toggleRecord,
       onClose: { dismiss() }
     )
-    .opacity(showControls ? 1 : 0)
-    .allowsHitTesting(showControls)
     // The reading surface disables focus effects; re-enable them on the transport
     // so its buttons show the standard accent focus ring (BROP-23 / Full Keyboard
     // Access), while the scrolling text stays ring-free.

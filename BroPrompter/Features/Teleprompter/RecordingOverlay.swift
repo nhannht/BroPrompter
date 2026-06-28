@@ -24,15 +24,16 @@ struct RecordingOverlay: View {
         countIn
       }
 
-      VStack {
+      VStack(spacing: 12) {
         if recorder.isCapturing {
-          recordingIndicator
+          topIndicators
         }
         if let savedTakeURL {
           savedBanner(savedTakeURL)
         }
         Spacer()
       }
+      .padding(.horizontal, 16)
       .padding(.top, 16)
     }
   }
@@ -48,8 +49,19 @@ struct RecordingOverlay: View {
       .accessibilityLabel("Starting in \(recorder.countdownRemaining)")
   }
 
-  private var recordingIndicator: some View {
-    HStack(spacing: 10) {
+  /// REC + elapsed clock at the leading edge and the input level meter at the
+  /// trailing edge, framing the centered "remaining" label in the top chrome
+  /// (prototype 07 4335:14397).
+  private var topIndicators: some View {
+    HStack(alignment: .top) {
+      recordingBadge
+      Spacer()
+      levelMeter
+    }
+  }
+
+  private var recordingBadge: some View {
+    HStack(spacing: 8) {
       Circle()
         .fill(.red)
         .frame(width: 10, height: 10)
@@ -62,20 +74,31 @@ struct RecordingOverlay: View {
 
       Text(TeleprompterEngine.clockString(recorder.elapsed))
         .font(.callout.monospacedDigit())
-
-      ProgressView(value: recorder.level)
-        .tint(.green)
-        .frame(width: 80)
     }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 8)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 6)
     .background(.bar, in: .capsule)
     .allowsHitTesting(false)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(recorder.phase == .paused ? "Recording paused" : "Recording")
-    .accessibilityValue(
-      "\(TeleprompterEngine.clockString(recorder.elapsed)), input level \(Int(recorder.level * 100)) percent"
-    )
+    .accessibilityValue(TeleprompterEngine.clockString(recorder.elapsed))
+  }
+
+  private var levelMeter: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "mic.fill")
+        .foregroundStyle(.secondary)
+      ProgressView(value: recorder.level)
+        .tint(.green)
+        .frame(width: 80)
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 6)
+    .background(.bar, in: .capsule)
+    .allowsHitTesting(false)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Input level")
+    .accessibilityValue("\(Int(recorder.level * 100)) percent")
   }
 
   private var waveform: some View {
