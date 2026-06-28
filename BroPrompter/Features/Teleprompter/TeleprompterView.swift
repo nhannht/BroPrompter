@@ -210,21 +210,25 @@ private struct TeleprompterReader: View {
   @FocusState private var isFocused: Bool
 
   /// Global reading-column width as a fraction of the viewport (DESIGN.md: line
-  /// width is a display preference, not a per-script attribute).
-  @AppStorage("teleprompter.lineWidthFraction") private var lineWidthFraction = 0.8
+  /// width is a display preference, not a per-script attribute). Keys come from
+  /// `Preferences` so the Settings window and this surface share one source.
+  @AppStorage(Preferences.Key.lineWidthFraction) private var lineWidthFraction = Preferences.Default.lineWidthFraction
+
+  /// Horizontally mirror the reading text for beam-splitter teleprompters (BROP-9).
+  @AppStorage(Preferences.Key.mirrorText) private var mirrorText = Preferences.Default.mirrorText
 
   /// Camera background preferences, global like the line width (a capture
   /// environment choice, not a per-script attribute). The mic id is selected
   /// here but consumed only when recording starts (P4 / BROP-6).
-  @AppStorage("camera.enabled") private var cameraEnabled = false
-  @AppStorage("camera.deviceID") private var cameraDeviceID = ""
-  @AppStorage("camera.micID") private var micDeviceID = ""
-  @AppStorage("camera.quality") private var cameraQualityRaw = CaptureQuality.preferred.rawValue
+  @AppStorage(Preferences.Key.cameraEnabled) private var cameraEnabled = false
+  @AppStorage(Preferences.Key.cameraDeviceID) private var cameraDeviceID = ""
+  @AppStorage(Preferences.Key.micDeviceID) private var micDeviceID = ""
+  @AppStorage(Preferences.Key.cameraQuality) private var cameraQualityRaw = Preferences.Default.cameraQualityRaw
 
   /// Recording preferences, global like the camera settings. Countdown length in
   /// seconds (0 disables); video codec for video takes.
-  @AppStorage("recording.countdown") private var countdownLength = 3
-  @AppStorage("recording.codec") private var videoCodecRaw = VideoCodec.hevc.rawValue
+  @AppStorage(Preferences.Key.countdown) private var countdownLength = Preferences.Default.countdown
+  @AppStorage(Preferences.Key.codec) private var videoCodecRaw = Preferences.Default.codecRaw
 
   /// One line's worth of scroll, used for arrow-key scrub steps.
   private var lineStep: Double {
@@ -596,6 +600,9 @@ private struct TeleprompterReader: View {
       .padding(.top, focusY)
       .padding(.bottom, viewport.height - focusY)
       .frame(maxWidth: .infinity)
+      // Mirror text for beam-splitter rigs (BROP-9): flip horizontally so the
+      // reflection reads correctly. Off by default; rest of the surface unchanged.
+      .scaleEffect(x: mirrorText ? -1 : 1, y: 1)
       .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { newHeight in
         contentHeight = newHeight
         updateMaxOffset()
