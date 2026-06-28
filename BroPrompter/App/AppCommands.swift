@@ -61,6 +61,21 @@ struct AppCommands: Commands {
     ScriptStore.container.mainContext
   }
 
+  /// Reads a plain-text file without assuming UTF-8: tries the encoding the file
+  /// declares (BOM or extended attribute), then UTF-8, then ISO Latin-1, which
+  /// maps every byte. So a valid non-UTF-8 text file imports instead of silently
+  /// doing nothing (BROP-41).
+  private static func readText(at url: URL) -> String? {
+    var usedEncoding = String.Encoding.utf8
+    if let detected = try? String(contentsOf: url, usedEncoding: &usedEncoding) {
+      return detected
+    }
+    if let utf8 = try? String(contentsOf: url, encoding: .utf8) {
+      return utf8
+    }
+    return try? String(contentsOf: url, encoding: .isoLatin1)
+  }
+
   @MainActor
   private func createScript() {
     let script = Preferences.newScript()
@@ -82,7 +97,7 @@ struct AppCommands: Commands {
     panel.allowsMultipleSelection = false
     panel.canChooseDirectories = false
     guard panel.runModal() == .OK, let url = panel.url else { return }
-    guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
+    guard let contents = Self.readText(at: url) else { return }
 
     let script = Script.imported(from: url, contents: contents)
     context.insert(script)
