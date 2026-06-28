@@ -55,6 +55,11 @@ struct RecordingOverlay: View {
         .frame(width: 10, height: 10)
         .opacity(recorder.phase == .paused ? 0.4 : 1)
 
+      // A text label so recording state does not rely on the red dot alone
+      // (non-color signifier, GUIDELINES.md 4 / BROP-23).
+      Text(recorder.phase == .paused ? "PAUSED" : "REC")
+        .font(.caption.weight(.semibold))
+
       Text(TeleprompterEngine.clockString(recorder.elapsed))
         .font(.callout.monospacedDigit())
 
@@ -67,7 +72,10 @@ struct RecordingOverlay: View {
     .background(.bar, in: .capsule)
     .allowsHitTesting(false)
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Recording, \(TeleprompterEngine.clockString(recorder.elapsed))")
+    .accessibilityLabel(recorder.phase == .paused ? "Recording paused" : "Recording")
+    .accessibilityValue(
+      "\(TeleprompterEngine.clockString(recorder.elapsed)), input level \(Int(recorder.level * 100)) percent"
+    )
   }
 
   private var waveform: some View {
@@ -98,6 +106,7 @@ struct RecordingOverlay: View {
         Image(systemName: "xmark")
       }
       .buttonStyle(.borderless)
+      .minimumHitTarget()
       .accessibilityLabel("Dismiss")
     }
     .padding(.horizontal, 16)
