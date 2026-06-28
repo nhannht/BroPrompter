@@ -14,6 +14,7 @@ struct BroPrompterApp: App {
     .modelContainer(ScriptStore.container)
     .commands {
       AppCommands()
+      PlaybackCommands()
     }
 
     // The teleprompter reads in its own window so it can go full screen
