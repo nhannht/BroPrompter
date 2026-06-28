@@ -54,13 +54,15 @@ private struct ScriptEditorContent: View {
       footer
     }
     .toolbar {
-      ToolbarItem {
-        Button {
+      ToolbarItem(placement: .primaryAction) {
+        // Cmd-Return is bound in the Script menu (AppCommands); the button stays
+        // shortcut-free so the editor does not double-bind it.
+        Button("Start Reading") {
           openWindow(id: "teleprompter", value: script.id)
-        } label: {
-          Label("Play in Teleprompter", systemImage: "play.fill")
         }
-        .help("Play in teleprompter")
+        .buttonStyle(.borderedProminent)
+        .help("Start reading in the teleprompter (Command-Return)")
+        .accessibilityIdentifier("editorStartReading")
       }
     }
   }
@@ -134,17 +136,25 @@ private struct ScriptEditorContent: View {
       .accessibilityIdentifier("scriptBodyEditor")
   }
 
+  /// The prototype Editor footer line (4339:14482): word count, estimated read
+  /// time at the reading pace, and the autosave state. SwiftData autosaves the
+  /// main context, so edits are persisted and the state reads "Saved".
   private var footer: some View {
-    HStack {
-      Text("\(ReadingStats.wordCount(of: script.body)) words")
-        .accessibilityIdentifier("wordCountLabel")
+    HStack(spacing: 0) {
+      Text(footerSummary)
+        .accessibilityIdentifier("editorFooter")
       Spacer()
-      Text("~\(ReadingStats.readMinutes(of: script.body, wordsPerMinute: wordsPerMinute)) min")
-        .accessibilityIdentifier("readTimeLabel")
     }
     .font(.caption)
     .foregroundStyle(.secondary)
     .padding(.horizontal)
     .padding(.vertical, 8)
+  }
+
+  private var footerSummary: String {
+    let words = ReadingStats.wordCount(of: script.body)
+    let seconds = ReadingStats.readSeconds(of: script.body, wordsPerMinute: wordsPerMinute)
+    let clock = TeleprompterEngine.clockString(Double(seconds))
+    return "\(words) words  -  about \(clock) at \(wordsPerMinute) wpm  -  Saved"
   }
 }
