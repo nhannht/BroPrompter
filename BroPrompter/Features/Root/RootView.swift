@@ -76,9 +76,21 @@ struct RootView: View {
     }
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
+        SettingsLink {
+          Label("Settings", systemImage: "gearshape")
+        }
+        .help("Settings")
+        .accessibilityIdentifier("librarySettings")
+      }
+      ToolbarItem(placement: .primaryAction) {
         Button("Recordings") { route = .recordings }
           .help("Browse recordings")
           .accessibilityIdentifier("libraryRecordings")
+      }
+      ToolbarItem(placement: .primaryAction) {
+        Button("New Script", action: createScript)
+          .help("New script")
+          .accessibilityIdentifier("libraryNewScript")
       }
     }
     .focusedSceneValue(\.selectedScriptID, selectionBinding)
@@ -135,6 +147,15 @@ struct RootView: View {
 
   private func displayTitle(_ script: Script) -> String {
     script.title.isEmpty ? "Untitled Script" : script.title
+  }
+
+  /// Creates a script seeded with the user's reading defaults and selects it, so
+  /// the new script opens in the editor (moved here from the sidebar so the
+  /// New Script action lives in the window toolbar, matching prototype H3).
+  private func createScript() {
+    let script = Preferences.newScript()
+    modelContext.insert(script)
+    selectionBinding.wrappedValue = script.id
   }
 
   private func delete(_ script: Script) {

@@ -1,4 +1,3 @@
-import SwiftData
 import SwiftUI
 
 // MARK: - ScriptSidebar
@@ -39,19 +38,10 @@ struct ScriptSidebar: View {
         )
       }
     }
-    .toolbar {
-      ToolbarItem {
-        Button(action: createScript) {
-          Label("New Script", systemImage: "square.and.pencil")
-        }
-        .help("New script")
-      }
-    }
   }
 
   // MARK: Private
 
-  @Environment(\.modelContext) private var modelContext
   @State private var searchText = ""
 
   private var filteredScripts: [Script] {
@@ -60,12 +50,6 @@ struct ScriptSidebar: View {
       script.title.localizedCaseInsensitiveContains(searchText)
         || script.body.localizedCaseInsensitiveContains(searchText)
     }
-  }
-
-  private func createScript() {
-    let script = Preferences.newScript()
-    modelContext.insert(script)
-    selection = script.id
   }
 }
 
