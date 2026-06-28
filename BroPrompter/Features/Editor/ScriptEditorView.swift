@@ -45,12 +45,9 @@ private struct ScriptEditorContent: View {
 
       Divider()
 
-      TextEditor(text: bodyBinding)
-        .font(.body)
-        .scrollContentBackground(.hidden)
-        .padding(.horizontal, 12)
-        .accessibilityLabel("Script body")
-        .accessibilityIdentifier("scriptBodyEditor")
+      readingSizeRow
+
+      bodyCard
 
       Divider()
 
@@ -92,6 +89,49 @@ private struct ScriptEditorContent: View {
         script.updatedAt = .now
       }
     )
+  }
+
+  /// The per-script reading-size control (prototype Editor 4339:14482): an
+  /// "Aa" glyph, a slider bound to `Script.fontSize` (24-120 pt, DESIGN.md 3.3),
+  /// and the current value. This is the size the teleprompter reads, so it is a
+  /// display setting and does not bump `updatedAt`.
+  private var readingSizeRow: some View {
+    HStack(spacing: 12) {
+      Image(systemName: "textformat.size")
+        .foregroundStyle(.secondary)
+      Text("Reading size")
+        .foregroundStyle(.secondary)
+      Slider(value: $script.fontSize, in: 24 ... 120, step: 1)
+      Text("\(Int(script.fontSize)) pt")
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
+        .frame(width: 56, alignment: .trailing)
+    }
+    .font(.callout)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 8)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Reading size")
+    .accessibilityValue("\(Int(script.fontSize)) points")
+    .accessibilityIdentifier("editorReadingSize")
+  }
+
+  /// The body editor in a bordered rounded card (prototype Editor 4339:14482),
+  /// rather than a bare editor (DESIGN.md 4.1 / 5).
+  private var bodyCard: some View {
+    TextEditor(text: bodyBinding)
+      .font(.body)
+      .scrollContentBackground(.hidden)
+      .padding(8)
+      .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+      .overlay {
+        RoundedRectangle(cornerRadius: 12)
+          .strokeBorder(Color(nsColor: .separatorColor))
+      }
+      .padding(.horizontal, 16)
+      .padding(.bottom, 8)
+      .accessibilityLabel("Script body")
+      .accessibilityIdentifier("scriptBodyEditor")
   }
 
   private var footer: some View {
