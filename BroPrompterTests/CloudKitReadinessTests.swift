@@ -5,11 +5,15 @@ import Testing
 
 /// Guards the CloudKit-safe shape of the synced models (BROP-27). The scripts
 /// store flips to `cloudKitDatabase: .automatic` once the Apple Developer account
-/// verifies; CloudKit then rejects any uniqueness constraint or required
-/// (non-optional) relationship. `Script` and `Take` are built without either: all
-/// attributes are defaulted and links stay loose `UUID`s rather than SwiftData
-/// relationships. These tests fail in CI the moment a change breaks that
-/// invariant, long before anyone tries the flip against real CloudKit.
+/// verifies; CloudKit then rejects a schema with a uniqueness constraint, a
+/// required (non-optional) relationship, or a non-optional attribute that has no
+/// default. `Script` and `Take` are built to avoid all three: every attribute is
+/// defaulted and links stay loose `UUID`s rather than SwiftData relationships.
+///
+/// The suite reads the live `ScriptStore` schema rather than a hand-rebuilt copy,
+/// so a model later added to the real container is covered automatically. These
+/// tests fail in CI the moment a change breaks the invariant, long before anyone
+/// can try the flip against real CloudKit.
 @Suite("CloudKit readiness")
 struct CloudKitReadinessTests {
 
@@ -40,11 +44,26 @@ struct CloudKitReadinessTests {
     }
   }
 
+  @Test("every synced attribute is optional or has a default value")
+  func attributesAreOptionalOrDefaulted() {
+    for entity in entities {
+      for attribute in entity.attributes {
+        #expect(
+          attribute.isOptional || attribute.defaultValue != nil,
+          "\(entity.name).\(attribute.name) is non-optional with no default; CloudKit requires every attribute optional or defaulted"
+        )
+      }
+    }
+  }
+
   // MARK: Private
 
-  /// The entities the scripts container will mirror to CloudKit.
+  /// The entities the live scripts container persists and (after BROP-27) mirrors
+  /// to CloudKit. Read from `ScriptStore` so the guard tracks the schema the app
+  /// actually ships, not a copy. The container is built once and runs in-memory
+  /// under the hosted test, so reading it here never touches the real store.
   private var entities: [Schema.Entity] {
-    Schema([Script.self, Take.self]).entities
+    ScriptStore.container.schema.entities
   }
 
 }
