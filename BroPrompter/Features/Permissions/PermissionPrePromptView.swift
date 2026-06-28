@@ -30,7 +30,8 @@ struct PermissionPrePromptView: View {
 
       Text(feature.prePromptMessage)
         .font(.body)
-        .foregroundStyle(.secondary)
+        // Instructional copy uses the primary label color to clear 4.5:1 (BROP-23).
+        .foregroundStyle(.primary)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
 
