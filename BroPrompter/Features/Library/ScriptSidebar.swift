@@ -63,7 +63,7 @@ struct ScriptSidebar: View {
   }
 
   private func createScript() {
-    let script = Script()
+    let script = Preferences.newScript()
     modelContext.insert(script)
     selection = script.id
   }

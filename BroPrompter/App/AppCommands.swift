@@ -63,7 +63,7 @@ struct AppCommands: Commands {
 
   @MainActor
   private func createScript() {
-    let script = Script()
+    let script = Preferences.newScript()
     context.insert(script)
     selectedScriptID?.wrappedValue = script.id
   }
