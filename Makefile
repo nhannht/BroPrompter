@@ -9,7 +9,7 @@ APP_PATH := $(APP_DERIVED)/Build/Products/Debug/BroPrompter.app
 WINID := build/winid
 SHOTS := build/screenshots
 
-.PHONY: format lint hooks generate build run screenshot test
+.PHONY: format lint hooks generate build run screenshot test release
 
 ## format: Autofix all Swift sources to the Airbnb Swift Style Guide.
 format:
@@ -44,6 +44,10 @@ run:
 screenshot: $(WINID)
 	@mkdir -p $(SHOTS)
 	@wid=$$($(WINID) BroPrompter) && screencapture -x -o -l $$wid $(SHOTS)/broprompter.png && echo "wrote $(SHOTS)/broprompter.png (window $$wid)"
+
+## release: Package a distributable .dmg in build/release (BROP-49). Unsigned ad-hoc by default; set SIGN_IDENTITY + TEAM_ID + NOTARY_PROFILE for a notarized build.
+release: generate
+	./tools/release.sh
 
 $(WINID): tools/winid.swift
 	@mkdir -p build
