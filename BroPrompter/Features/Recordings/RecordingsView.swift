@@ -14,6 +14,7 @@ struct RecordingsView: View {
 
   let onBack: () -> Void
   let onOpen: (Take) -> Void
+  let onTrim: (Take) -> Void
 
   var body: some View {
     let rows = RecordingsList.rows(for: takes, now: Date())
@@ -55,7 +56,8 @@ struct RecordingsView: View {
   // MARK: Private
 
   private static let recordedColumnWidth: CGFloat = 150
-  private static let actionsColumnWidth: CGFloat = 76
+  // Wide enough for three 28pt hit targets (play / trim / share) plus spacing.
+  private static let actionsColumnWidth: CGFloat = 116
   private static let rowInsets = EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20)
 
   @Environment(\.modelContext) private var modelContext
@@ -174,6 +176,13 @@ struct RecordingsView: View {
       .minimumHitTarget()
       .accessibilityLabel("Play \(row.displayName)")
 
+      Button { onTrim(row.take) } label: {
+        Image(systemName: "scissors")
+      }
+      .help("Trim")
+      .minimumHitTarget()
+      .accessibilityLabel("Trim \(row.displayName)")
+
       ShareLink(item: row.take.fileURL) {
         Image(systemName: "square.and.arrow.up")
       }
@@ -187,6 +196,7 @@ struct RecordingsView: View {
   @ViewBuilder
   private func rowMenu(_ row: RecordingsList.Row) -> some View {
     Button("Play") { onOpen(row.take) }
+    Button("Trim") { onTrim(row.take) }
     Button("Export...") { TakeExporter.exportCopy(of: row.take.fileURL, suggestedName: row.displayName) }
     ShareLink("Share", item: row.take.fileURL)
     if row.take.scriptID != nil {
@@ -197,11 +207,16 @@ struct RecordingsView: View {
   }
 
   private func summary(_ rows: [RecordingsList.Row]) -> String {
+    var parts = [RecordingsList.countLabel(rows.count)]
     let bytes = rows.reduce(into: Int64(0)) { total, row in
       total += fileSize(of: row.take)
     }
-    guard bytes > 0 else { return RecordingsList.countLabel(rows.count) }
-    return "\(RecordingsList.countLabel(rows.count))    \(RecordingsList.sizeLabel(bytes))"
+    if bytes > 0 {
+      parts.append(RecordingsList.sizeLabel(bytes))
+    }
+    // Where "Export a copy" defaults to (prototype H5 4340:14510).
+    parts.append("Exported to ~/Movies")
+    return parts.joined(separator: "    ")
   }
 
   private func fileSize(of take: Take) -> Int64 {

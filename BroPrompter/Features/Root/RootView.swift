@@ -35,7 +35,8 @@ struct RootView: View {
       case .recordings:
         RecordingsView(
           onBack: { route = .library },
-          onOpen: { route = .takeReview($0) }
+          onOpen: { route = .takeReview($0) },
+          onTrim: { route = .trim($0) }
         )
 
       case .takeReview(let take):
