@@ -10,9 +10,17 @@ enum TakeStore {
   /// clears from the list.
   @MainActor
   static func delete(_ take: Take, in context: ModelContext) {
-    try? FileManager.default.removeItem(at: take.fileURL)
+    let fileURL = take.fileURL
     context.delete(take)
-    try? context.save()
+    // Persist the row deletion before removing the file. If the save fails the
+    // row reappears on next launch, so keeping the file leaves the row and its
+    // recording consistent instead of orphaning an unplayable take (BROP-41).
+    do {
+      try context.save()
+    } catch {
+      return
+    }
+    try? FileManager.default.removeItem(at: fileURL)
   }
 
   /// Trims `take` to `selection` and saves the result as a new take, leaving the
@@ -44,7 +52,14 @@ enum TakeStore {
       codecRaw: take.codecRaw
     )
     context.insert(trimmed)
-    try context.save()
+    do {
+      try context.save()
+    } catch {
+      // The trimmed file is already on disk; remove it so a failed save does not
+      // leave an orphaned recording with no owning row (BROP-41).
+      try? FileManager.default.removeItem(at: RecordingsDirectory.fileURL(forName: fileName))
+      throw error
+    }
     return trimmed
   }
 
@@ -67,9 +82,20 @@ enum TakeStore {
       end: selection.end,
       to: RecordingsDirectory.fileURL(forName: fileName)
     )
+    let previousFileName = take.fileName
+    let previousDuration = take.duration
     take.fileName = fileName
     take.duration = selection.trimmedDuration
-    try context.save()
+    do {
+      try context.save()
+    } catch {
+      // Roll back the in-memory edit and remove the freshly written file so a
+      // failed save leaves the original take and the folder intact (BROP-41).
+      take.fileName = previousFileName
+      take.duration = previousDuration
+      try? FileManager.default.removeItem(at: RecordingsDirectory.fileURL(forName: fileName))
+      throw error
+    }
     if originalURL != take.fileURL {
       try? FileManager.default.removeItem(at: originalURL)
     }
