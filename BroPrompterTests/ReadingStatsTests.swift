@@ -30,4 +30,16 @@ struct ReadingStatsTests {
     let text = String(repeating: "word ", count: testCase.words)
     #expect(ReadingStats.readMinutes(of: text) == testCase.minutes)
   }
+
+  @Test("read minutes scale with the configured wpm, default matches 150", arguments: [
+    (wpm: 300, minutes: 1),
+    (wpm: 150, minutes: 2),
+    (wpm: 100, minutes: 3),
+  ])
+  func readMinutesAtCustomPace(_ testCase: (wpm: Int, minutes: Int)) {
+    let text = String(repeating: "word ", count: 300)
+    #expect(ReadingStats.readMinutes(of: text, wordsPerMinute: testCase.wpm) == testCase.minutes)
+    // The default parameter preserves the original 150-wpm behavior.
+    #expect(ReadingStats.readMinutes(of: text) == ReadingStats.readMinutes(of: text, wordsPerMinute: 150))
+  }
 }

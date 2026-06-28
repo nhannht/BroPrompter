@@ -72,6 +72,8 @@ private struct ScriptEditorContent: View {
 
   @Environment(\.openWindow) private var openWindow
 
+  @AppStorage(Preferences.Key.readingWordsPerMinute) private var wordsPerMinute = Preferences.Default.readingWordsPerMinute
+
   private var titleBinding: Binding<String> {
     Binding(
       get: { script.title },
@@ -97,7 +99,7 @@ private struct ScriptEditorContent: View {
       Text("\(ReadingStats.wordCount(of: script.body)) words")
         .accessibilityIdentifier("wordCountLabel")
       Spacer()
-      Text("~\(ReadingStats.readMinutes(of: script.body)) min")
+      Text("~\(ReadingStats.readMinutes(of: script.body, wordsPerMinute: wordsPerMinute)) min")
         .accessibilityIdentifier("readTimeLabel")
     }
     .font(.caption)
