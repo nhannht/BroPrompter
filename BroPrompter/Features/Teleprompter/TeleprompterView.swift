@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -115,14 +116,24 @@ private struct TeleprompterReader: View {
       .focusable()
       .focusEffectDisabled()
       .focused($isFocused)
-      .onKeyPress(.upArrow) { scrub(by: -lineStep) }
-      .onKeyPress(.downArrow) { scrub(by: lineStep) }
+      // Publish the transport so the Playback menu can drive this window when it
+      // is key; the arrows and transport keys now live on those menu items (BROP-38).
+      .focusedSceneValue(\.teleprompterCommands, teleprompterCommands())
+      .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { note in
+        if (note.object as? NSWindow) === windowBox.window { isFullScreen = true }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { note in
+        if (note.object as? NSWindow) === windowBox.window { isFullScreen = false }
+      }
       .onExitCommand {
-        // While recording, Esc stops the take instead of closing, so a take is
-        // never lost to an accidental exit (GUIDELINES.md 2.2).
-        if recorder.isCapturing {
+        // Esc protects an in-progress take first, then leaves full screen before
+        // closing the window (GUIDELINES.md 2.2 / 3).
+        switch TeleprompterExitCommand.resolve(isRecording: recorder.isCapturing, isFullScreen: isFullScreen) {
+        case .stopRecording:
           stopRecording()
-        } else {
+        case .exitFullScreen:
+          windowBox.window?.toggleFullScreen(nil)
+        case .dismiss:
           dismiss()
         }
       }
@@ -206,6 +217,7 @@ private struct TeleprompterReader: View {
   @State private var scrollMonitor: Any?
   @State private var didActivateWindow = false
   @State private var permissionRequest: PermissionRequest?
+  @State private var isFullScreen = false
 
   @FocusState private var isFocused: Bool
 
@@ -230,9 +242,15 @@ private struct TeleprompterReader: View {
   @AppStorage(Preferences.Key.countdown) private var countdownLength = Preferences.Default.countdown
   @AppStorage(Preferences.Key.codec) private var videoCodecRaw = Preferences.Default.codecRaw
 
-  /// One line's worth of scroll, used for arrow-key scrub steps.
+  /// One line's worth of scroll, used for the Up/Down scrub step.
   private var lineStep: Double {
     script.fontSize * 1.4
+  }
+
+  /// One "page" of scroll for the Left/Right keys: most of the visible height,
+  /// floored at one line (BROP-38).
+  private var pageStep: Double {
+    TeleprompterEngine.pageStep(viewportHeight: viewportHeight, lineHeight: lineStep)
   }
 
   /// Drag to scrub the scroll manually; dragging up advances the script.
@@ -625,6 +643,35 @@ private struct TeleprompterReader: View {
     engine.maxOffset = max(0, contentHeight - viewportHeight)
   }
 
+  /// Builds the transport snapshot published to the Playback menu. Rebuilt each
+  /// body pass so the menu's labels and enablement track the live state; the
+  /// closures forward to this view's own methods (BROP-38).
+  private func teleprompterCommands() -> TeleprompterCommands {
+    TeleprompterCommands(
+      isPlaying: engine.isPlaying,
+      isCapturing: recorder.isCapturing,
+      isFullScreen: isFullScreen,
+      canToggleCamera: !recorder.isCapturing && recorder.phase != .countingIn,
+      canToggleRecord: recorder.phase != .finalizing,
+      togglePlay: togglePlay,
+      restart: {
+        engine.restart()
+        revealControls()
+      },
+      faster: { changeSpeed(by: Self.speedStep) },
+      slower: { changeSpeed(by: -Self.speedStep) },
+      largerFont: { changeFont(by: Self.fontStep) },
+      smallerFont: { changeFont(by: -Self.fontStep) },
+      scrubLineUp: { scrub(by: -lineStep) },
+      scrubLineDown: { scrub(by: lineStep) },
+      pageBack: { scrub(by: -pageStep) },
+      pageForward: { scrub(by: pageStep) },
+      toggleCamera: toggleCamera,
+      toggleRecord: toggleRecord,
+      toggleFullScreen: toggleFullScreen
+    )
+  }
+
   private func togglePlay() {
     engine.toggle()
     revealControls()
@@ -641,10 +688,16 @@ private struct TeleprompterReader: View {
     revealControls()
   }
 
-  private func scrub(by delta: Double) -> KeyPress.Result {
+  private func scrub(by delta: Double) {
     engine.scrub(by: delta)
     revealControls()
-    return .handled
+  }
+
+  /// Toggles the host window's full-screen state (GUIDELINES.md 3). The menu label
+  /// and the Esc branch follow `isFullScreen`, kept current by the window's
+  /// full-screen notifications.
+  private func toggleFullScreen() {
+    windowBox.window?.toggleFullScreen(nil)
   }
 
   private func revealControls() {

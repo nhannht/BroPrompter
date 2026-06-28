@@ -93,7 +93,6 @@ struct TeleprompterControls: View {
           systemImage: engine.isPlaying ? "pause.fill" : "play.fill"
         )
       }
-      .keyboardShortcut(.space, modifiers: [])
       .accessibilityIdentifier("teleprompterPlayPause")
       .help(engine.isPlaying ? "Pause" : "Play")
 
@@ -132,7 +131,6 @@ struct TeleprompterControls: View {
       Button(action: onSlower) {
         Image(systemName: "tortoise")
       }
-      .keyboardShortcut("-", modifiers: [])
       .accessibilityLabel("Slower")
       .accessibilityIdentifier("teleprompterSlower")
 
@@ -144,7 +142,6 @@ struct TeleprompterControls: View {
       Button(action: onFaster) {
         Image(systemName: "hare")
       }
-      .keyboardShortcut("+", modifiers: [])
       .accessibilityLabel("Faster")
       .accessibilityIdentifier("teleprompterFaster")
     }
@@ -155,7 +152,6 @@ struct TeleprompterControls: View {
       Button(action: onSmaller) {
         Image(systemName: "textformat.size.smaller")
       }
-      .keyboardShortcut("-", modifiers: .command)
       .accessibilityLabel("Smaller text")
       .accessibilityIdentifier("teleprompterFontSmaller")
 
@@ -168,7 +164,6 @@ struct TeleprompterControls: View {
       Button(action: onLarger) {
         Image(systemName: "textformat.size.larger")
       }
-      .keyboardShortcut("+", modifiers: .command)
       .accessibilityLabel("Larger text")
       .accessibilityIdentifier("teleprompterFontLarger")
     }
@@ -179,7 +174,6 @@ struct TeleprompterControls: View {
       Button(action: onToggleCamera) {
         Image(systemName: cameraEnabled ? "video.fill" : "video.slash")
       }
-      .keyboardShortcut("c", modifiers: [])
       .accessibilityLabel(cameraEnabled ? "Turn camera off" : "Turn camera on")
       .accessibilityIdentifier("teleprompterCamera")
       .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
@@ -202,7 +196,6 @@ struct TeleprompterControls: View {
     Button(action: onToggleRecord) {
       Image(systemName: isCapturing ? "stop.circle.fill" : "record.circle")
     }
-    .keyboardShortcut("r", modifiers: [])
     .tint(.red)
     .disabled(recordDisabled)
     .accessibilityLabel(isCapturing ? "Stop recording" : "Start recording")
